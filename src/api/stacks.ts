@@ -3,6 +3,10 @@ import axios from 'axios';
 // Stacks 公共API基础URL - 使用 Hiro API (免费)
 const STACKS_API_BASE = 'https://api.mainnet.hiro.so';
 
+// 交易缓存，防止重复显示和遗漏
+const transactionCache = new Map<string, StacksTransaction>();
+const MAX_CACHE_SIZE = 1000;
+
 export interface StacksTransaction {
   tx_id: string;
   tx_type: string;
@@ -32,7 +36,7 @@ export interface StacksTransactionResponse {
 }
 
 /**
- * 获取最新的 Stacks 交易
+ * 获取最新的 Stacks 交易（带缓存防止遗漏）
  * @param limit 每页数量
  * @param offset 偏移量
  */
@@ -48,11 +52,33 @@ export const getStacksTransactions = async (
       },
       timeout: 15000,
     });
-    return response.data;
+    
+    // 缓存交易以防止遗漏
+    const data = response.data as StacksTransactionResponse;
+    data.results.forEach(tx => {
+      if (!transactionCache.has(tx.tx_id)) {
+        transactionCache.set(tx.tx_id, tx);
+        
+        // 限制缓存大小
+        if (transactionCache.size > MAX_CACHE_SIZE) {
+          const firstKey = transactionCache.keys().next().value;
+          if (firstKey) transactionCache.delete(firstKey);
+        }
+      }
+    });
+    
+    return data;
   } catch (error) {
     console.error('获取 Stacks 交易失败:', error);
     throw error;
   }
+};
+
+/**
+ * 获取缓存的交易数量
+ */
+export const getCachedTransactionCount = (): number => {
+  return transactionCache.size;
 };
 
 /**
@@ -281,7 +307,7 @@ export const parseSwapInfo = (tx: StacksTransaction): string => {
     }
     
     // 解析函数参数
-    args.forEach((arg: any, index: number) => {
+    args.forEach((arg: any) => {
       if (typeof arg === 'object' && arg !== null) {
         const argStr = JSON.stringify(arg);
         
