@@ -307,7 +307,7 @@ export const parseSwapInfo = (tx: StacksTransaction): string => {
     }
     
     // 解析函数参数
-    args.forEach((arg: any, index: number) => {
+    args.forEach((arg: any) => {
       if (typeof arg === 'object' && arg !== null) {
         const argStr = JSON.stringify(arg);
         
