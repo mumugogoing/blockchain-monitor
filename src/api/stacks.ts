@@ -185,6 +185,13 @@ export const parseContractPlatform = (contractId: string): string => {
     'SP3MBWGMCVC9KZ5DTAYFMG1D0AEJCR7NENTM3FTK5.bitflow': 'Bitflow',
     'SP2XD7417HGPRTREMKF748VNEQPDRR0RMANB7X1NK.bitflow-router': 'Bitflow',
     'SP2XD7417HGPRTREMKF748VNEQPDRR0RMANB7X1NK.bitflow-swap': 'Bitflow',
+    'SP2XD7417HGPRTREMKF748VNEQPDRR0RMANB7X1NK.bitflow-core': 'Bitflow',
+    'SP2XD7417HGPRTREMKF748VNEQPDRR0RMANB7X1NK.bitflow-vault': 'Bitflow',
+    'SP2XD7417HGPRTREMKF748VNEQPDRR0RMANB7X1NK.bitflow-amm': 'Bitflow',
+    'SP2XD7417HGPRTREMKF748VNEQPDRR0RMANB7X1NK.bitflow-pool': 'Bitflow',
+    'SP3MBWGMCVC9KZ5DTAYFMG1D0AEJCR7NENTM3FTK5.bitflow-v2': 'Bitflow',
+    'SP3MBWGMCVC9KZ5DTAYFMG1D0AEJCR7NENTM3FTK5.bitflow-router': 'Bitflow',
+    'SP3MBWGMCVC9KZ5DTAYFMG1D0AEJCR7NENTM3FTK5.bitflow-swap': 'Bitflow',
     // Velar
     'SP1Y5YSTAHZ88XYK1VPDH24GY0HPX5J4JECTMY4A1.velar': 'Velar',
     'SP1Y5YSTAHZ88XYK1VPDH24GY0HPX5J4JECTMY4A1.univ2-core': 'Velar',
@@ -217,10 +224,29 @@ export const parseContractPlatform = (contractId: string): string => {
     }
   }
   
+  // 通过模式匹配识别平台 - 处理未在platformMap中列出的合约变体
+  const contractLower = contractId.toLowerCase();
+  if (contractLower.includes('bitflow')) {
+    return 'Bitflow';
+  }
+  if (contractLower.includes('alex') || contractLower.includes('amm-')) {
+    return 'ALEX';
+  }
+  if (contractLower.includes('velar') || contractLower.includes('univ2')) {
+    return 'Velar';
+  }
+  if (contractLower.includes('arkadiko')) {
+    return 'Arkadiko';
+  }
+  if (contractLower.includes('stackswap')) {
+    return 'Stackswap';
+  }
+  
   // 提取合约名称
   const parts = contractId.split('.');
   if (parts.length > 1) {
-    return parts[1].slice(0, 20);
+    // 返回完整合约名称而不是裁剪
+    return parts[1];
   }
   
   return '其他平台';
@@ -253,6 +279,19 @@ export const parseTokenSymbol = (tokenId: string): string => {
     'alex': 'ALEX',
     'diko': 'DIKO',
     'auto-alex': 'atALEX',
+    'usda': 'USDA',
+    'xusd': 'xUSD',
+    'stx-stx': 'STX',
+    'token-stx': 'STX',
+    'wrapped-bitcoin': 'xBTC',
+    'token-wstx': 'wSTX',
+    'token-susdt': 'sUSDT',
+    'mia': 'MIA',
+    'nyc': 'NYC',
+    'banana': 'BANANA',
+    'leo': 'LEO',
+    'roo': 'ROO',
+    'slime': 'SLIME',
   };
   
   const lower = tokenId.toLowerCase();
@@ -271,10 +310,21 @@ export const parseTokenSymbol = (tokenId: string): string => {
     if (tokenParts.length > 1) {
       return tokenParts[tokenParts.length - 1].toUpperCase();
     }
-    return contractName.slice(0, 10).toUpperCase();
+    
+    // 尝试从合约名称中提取代币符号
+    // 例如: token-aeusdc -> aeusdc, wrapped-bitcoin -> bitcoin
+    if (contractName.startsWith('token-')) {
+      return contractName.substring(6).toUpperCase();
+    }
+    if (contractName.startsWith('wrapped-')) {
+      return contractName.substring(8).toUpperCase();
+    }
+    
+    // 返回完整的合约名称而不是裁剪
+    return contractName.toUpperCase();
   }
   
-  return tokenId.slice(0, 10).toUpperCase();
+  return tokenId.toUpperCase();
 };
 
 /**
@@ -288,12 +338,12 @@ export const parseSwapInfo = (tx: StacksTransaction): string => {
     return `${amount} STX (转账)`;
   }
   
-  if (!tx.contract_call || !tx.contract_call.function_args) {
+  if (!tx.contract_call) {
     return '';
   }
   
   const functionName = tx.contract_call.function_name || '';
-  const args = tx.contract_call.function_args;
+  const args = tx.contract_call.function_args || [];
   const contractId = tx.contract_call.contract_id || '';
   
   // 检查是否为swap相关函数
@@ -313,29 +363,35 @@ export const parseSwapInfo = (tx: StacksTransaction): string => {
     let toToken = '';
     let fromAmount = '';
     let toAmount = '';
-    
-    // 从合约ID推断可能的代币
-    if (contractId.includes('alex')) {
-      fromToken = fromToken || 'ALEX';
-    } else if (contractId.includes('velar')) {
-      fromToken = fromToken || 'VELAR';
-    } else if (contractId.includes('bitflow')) {
-      fromToken = fromToken || 'BFT';
-    }
+    const tokenContracts: string[] = [];
     
     // 解析函数参数
     args.forEach((arg: any) => {
       if (typeof arg === 'object' && arg !== null) {
         const argStr = JSON.stringify(arg);
         
+        // 尝试提取代币合约信息 (principal类型)
+        if (arg.principal || argStr.includes('principal')) {
+          const principalMatch = argStr.match(/[A-Z0-9]{28,}\.[a-zA-Z0-9-]+/g);
+          if (principalMatch && principalMatch.length > 0) {
+            principalMatch.forEach((contract: string) => {
+              if (!tokenContracts.includes(contract)) {
+                tokenContracts.push(contract);
+              }
+            });
+          }
+        }
+        
         // 尝试提取代币信息
         if (argStr.includes('token') || argStr.includes('asset')) {
           const tokenMatch = argStr.match(/([a-zA-Z0-9-]+)/g);
           if (tokenMatch && tokenMatch.length > 0) {
-            if (!fromToken) {
-              fromToken = parseTokenSymbol(tokenMatch.join(''));
-            } else if (!toToken) {
-              toToken = parseTokenSymbol(tokenMatch.join(''));
+            const tokenStr = tokenMatch.join('');
+            const symbol = parseTokenSymbol(tokenStr);
+            if (symbol && !fromToken) {
+              fromToken = symbol;
+            } else if (symbol && !toToken && symbol !== fromToken) {
+              toToken = symbol;
             }
           }
         }
@@ -354,7 +410,7 @@ export const parseSwapInfo = (tx: StacksTransaction): string => {
         const symbol = parseTokenSymbol(arg);
         if (symbol && !fromToken) {
           fromToken = symbol;
-        } else if (symbol && !toToken) {
+        } else if (symbol && !toToken && symbol !== fromToken) {
           toToken = symbol;
         }
       } else if (typeof arg === 'number') {
@@ -366,6 +422,28 @@ export const parseSwapInfo = (tx: StacksTransaction): string => {
         }
       }
     });
+    
+    // 从提取的合约地址中解析代币符号
+    if (tokenContracts.length >= 1 && !fromToken) {
+      fromToken = parseTokenSymbol(tokenContracts[0]);
+    }
+    if (tokenContracts.length >= 2 && !toToken) {
+      toToken = parseTokenSymbol(tokenContracts[1]);
+    }
+    
+    // 如果还没有代币信息，从合约ID推断
+    if (!fromToken || !toToken) {
+      if (contractId.includes('alex')) {
+        fromToken = fromToken || 'STX';
+        toToken = toToken || 'ALEX';
+      } else if (contractId.includes('velar')) {
+        fromToken = fromToken || 'STX';
+        toToken = toToken || 'VELAR';
+      } else if (contractId.includes('bitflow')) {
+        fromToken = fromToken || 'STX';
+        toToken = toToken || 'BFT';
+      }
+    }
     
     // 如果没有找到代币，使用通用标识
     if (!fromToken && !toToken && (fromAmount || toAmount)) {
