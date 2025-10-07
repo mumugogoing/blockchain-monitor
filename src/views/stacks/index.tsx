@@ -41,12 +41,14 @@ interface MonitorData {
   platform: string;
   swapInfo: string;
   address: string;
+  contractId: string; // 合约地址
 }
 
 const StacksMonitor: React.FC = () => {
   const [data, setData] = useState<MonitorData[]>([]);
   const [loading, setLoading] = useState(false);
   const [autoRefresh, setAutoRefresh] = useState(false);
+  const [refreshInterval, setRefreshInterval] = useState(30); // 自定义刷新间隔（秒）
   const [lastUpdateTime, setLastUpdateTime] = useState<string>('');
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
@@ -54,6 +56,7 @@ const StacksMonitor: React.FC = () => {
   const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
   const [total, setTotal] = useState(0);
+  const [monitorAddress, setMonitorAddress] = useState(''); // 地址监控
 
   // 获取监控数据
   const fetchData = async () => {
@@ -62,16 +65,19 @@ const StacksMonitor: React.FC = () => {
       const offset = (currentPage - 1) * pageSize;
       const result = await getStacksTransactions(pageSize, offset);
       
-      // 转换数据格式
-      const transformedData: MonitorData[] = result.results.map((tx: StacksTransaction) => ({
-        id: tx.tx_id,
-        timestamp: formatStacksTimestamp(tx.burn_block_time),
-        type: parseStacksTransactionType(tx.tx_type),
-        status: parseStacksTransactionStatus(tx.tx_status),
-        platform: tx.contract_call ? parseContractPlatform(tx.contract_call.contract_id) : '-',
-        swapInfo: parseSwapInfo(tx),
-        address: tx.sender_address,
-      }));
+      // 转换数据格式，并过滤掉代币转账交易
+      const transformedData: MonitorData[] = result.results
+        .filter((tx: StacksTransaction) => tx.tx_type !== 'token_transfer') // 移除代币转账
+        .map((tx: StacksTransaction) => ({
+          id: tx.tx_id,
+          timestamp: formatStacksTimestamp(tx.burn_block_time),
+          type: parseStacksTransactionType(tx.tx_type),
+          status: parseStacksTransactionStatus(tx.tx_status),
+          platform: tx.contract_call ? parseContractPlatform(tx.contract_call.contract_id) : '-',
+          swapInfo: parseSwapInfo(tx),
+          address: tx.sender_address,
+          contractId: tx.contract_call ? tx.contract_call.contract_id : '-',
+        }));
       
       setData(transformedData);
       setTotal(result.total);
@@ -95,12 +101,12 @@ const StacksMonitor: React.FC = () => {
     if (autoRefresh) {
       interval = window.setInterval(() => {
         fetchData();
-      }, 30000); // 每30秒刷新一次
+      }, refreshInterval * 1000); // 使用自定义刷新间隔
     }
     return () => {
       if (interval) clearInterval(interval);
     };
-  }, [autoRefresh]);
+  }, [autoRefresh, refreshInterval]);
 
   // 表格列定义
   const columns: ColumnsType<MonitorData> = [
@@ -153,6 +159,19 @@ const StacksMonitor: React.FC = () => {
       width: 250,
       render: (swapInfo: string) => (
         swapInfo ? <Text strong style={{ color: '#1890ff' }}>{swapInfo}</Text> : <Text type="secondary">-</Text>
+      ),
+    },
+    {
+      title: '交易合约',
+      dataIndex: 'contractId',
+      key: 'contractId',
+      width: 200,
+      render: (contractId: string) => (
+        contractId && contractId !== '-' ? (
+          <Text copyable={{ text: contractId }}>{formatStacksAddress(contractId)}</Text>
+        ) : (
+          <Text type="secondary">-</Text>
+        )
       ),
     },
     {
@@ -217,13 +236,25 @@ const StacksMonitor: React.FC = () => {
         <Col span={6}>
           <Card>
             <Space direction="vertical" style={{ width: '100%' }}>
-              <Text>自动刷新 (30秒)</Text>
+              <Text>自动刷新</Text>
               <Switch
                 checked={autoRefresh}
                 onChange={setAutoRefresh}
                 checkedChildren="开启"
                 unCheckedChildren="关闭"
               />
+              <Select
+                value={refreshInterval}
+                onChange={setRefreshInterval}
+                style={{ width: '100%' }}
+                disabled={!autoRefresh}
+              >
+                <Option value={10}>10秒</Option>
+                <Option value={30}>30秒</Option>
+                <Option value={60}>1分钟</Option>
+                <Option value={120}>2分钟</Option>
+                <Option value={300}>5分钟</Option>
+              </Select>
             </Space>
           </Card>
         </Col>
@@ -261,6 +292,39 @@ const StacksMonitor: React.FC = () => {
           </Space>
           
           <Space wrap>
+            <Text>地址监控：</Text>
+            <Input
+              placeholder="输入STX地址进行监控"
+              value={monitorAddress}
+              onChange={(e) => setMonitorAddress(e.target.value)}
+              style={{ width: 300 }}
+            />
+            <Button
+              type="primary"
+              onClick={() => {
+                if (monitorAddress) {
+                  setSearchText(monitorAddress);
+                  message.success(`已开始监控地址: ${formatStacksAddress(monitorAddress)}`);
+                  // 这里可以集成推送通知服务（如 Firebase Cloud Messaging, OneSignal 等）
+                  message.info('地址交易通知功能需要配置推送服务（如 Firebase/OneSignal）');
+                } else {
+                  message.warning('请输入要监控的地址');
+                }
+              }}
+            >
+              开始监控
+            </Button>
+            <Button
+              onClick={() => {
+                setMonitorAddress('');
+                message.info('已停止地址监控');
+              }}
+            >
+              停止监控
+            </Button>
+          </Space>
+          
+          <Space wrap>
             <Text>类型筛选：</Text>
             <Select
               mode="multiple"
@@ -269,7 +333,6 @@ const StacksMonitor: React.FC = () => {
               onChange={setSelectedTypes}
               style={{ minWidth: 200 }}
             >
-              <Option value="代币转账">代币转账</Option>
               <Option value="合约调用">合约调用</Option>
               <Option value="智能合约">智能合约</Option>
               <Option value="Coinbase">Coinbase</Option>
@@ -312,7 +375,7 @@ const StacksMonitor: React.FC = () => {
             },
             pageSizeOptions: ['3', '5', '10', '20', '50', '100'],
           }}
-          scroll={{ x: 1200 }}
+          scroll={{ x: 1400 }}
           size="small"
         />
       </Card>
