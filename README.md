@@ -27,7 +27,7 @@ cd blockchain-monitor
 
 2. **启动服务**
 ```bash
-docker-compose up -d
+docker compose up -d
 ```
 
 3. **访问应用**
@@ -119,17 +119,17 @@ scp -r blockchain-monitor user@your-server:/path/to/app
 3. **在服务器上启动**
 ```bash
 cd /path/to/app
-docker-compose up -d
+docker compose up -d
 ```
 
 4. **查看日志**
 ```bash
-docker-compose logs -f
+docker compose logs -f
 ```
 
 5. **停止服务**
 ```bash
-docker-compose down
+docker compose down
 ```
 
 ### 自定义端口
@@ -172,7 +172,7 @@ A: 在监控页面中，自动刷新间隔设置为30秒。可以在代码中修
 A: 编辑 `src/services/auth.ts` 中的 `users` 对象。
 
 **Q: Docker 容器无法启动？**
-A: 检查端口是否被占用，使用 `docker-compose logs` 查看详细日志。
+A: 检查端口是否被占用，使用 `docker compose logs` 查看详细日志。
 
 ## 许可证
 
