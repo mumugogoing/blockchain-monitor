@@ -1,0 +1,16 @@
+version: '3.8'
+
+services:
+  blockchain-monitor:
+    build: .
+    ports:
+      - "80:80"
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+    networks:
+      - monitor-network
+
+networks:
+  monitor-network:
+    driver: bridge

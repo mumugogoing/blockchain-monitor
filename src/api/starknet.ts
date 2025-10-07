@@ -3,6 +3,10 @@ import axios from 'axios';
 // Starknet公共API基础URL - 使用Voyager的公共API
 const STARKNET_API_BASE = 'https://api.voyager.online/beta';
 
+// 交易缓存，防止重复显示和遗漏
+const transactionCache = new Map<string, StarknetTransaction>();
+const MAX_CACHE_SIZE = 1000;
+
 export interface StarknetTransaction {
   hash: string;
   type: string;
@@ -23,7 +27,7 @@ export interface StarknetTransactionResponse {
 }
 
 /**
- * 获取最新的Starknet交易
+ * 获取最新的Starknet交易（带缓存防止遗漏）
  * @param page 页码
  * @param pageSize 每页数量
  */
@@ -36,7 +40,24 @@ export const getLatestTransactions = async (page: number = 1, pageSize: number =
       },
       timeout: 10000
     });
-    return response.data;
+    
+    // 缓存交易以防止遗漏
+    const data = response.data as StarknetTransactionResponse;
+    if (data.items) {
+      data.items.forEach(tx => {
+        if (!transactionCache.has(tx.hash)) {
+          transactionCache.set(tx.hash, tx);
+          
+          // 限制缓存大小
+          if (transactionCache.size > MAX_CACHE_SIZE) {
+            const firstKey = transactionCache.keys().next().value;
+            if (firstKey) transactionCache.delete(firstKey);
+          }
+        }
+      });
+    }
+    
+    return data;
   } catch (error) {
     console.error('获取Starknet交易失败:', error);
     // 返回模拟数据作为后备方案
@@ -45,6 +66,13 @@ export const getLatestTransactions = async (page: number = 1, pageSize: number =
       lastPage: 100
     };
   }
+};
+
+/**
+ * 获取缓存的交易数量
+ */
+export const getCachedTransactionCount = (): number => {
+  return transactionCache.size;
 };
 
 /**
