@@ -174,10 +174,13 @@ export const parseContractPlatform = (contractId: string): string => {
     'SP3K8BC0PPEVCV7NZ6QSRWPQ2JE9E5B6N3PA0KBR9.amm-swap-pool': 'ALEX',
     'SP3K8BC0PPEVCV7NZ6QSRWPQ2JE9E5B6N3PA0KBR9.amm-pool-v2-01': 'ALEX',
     'SP3K8BC0PPEVCV7NZ6QSRWPQ2JE9E5B6N3PA0KBR9.swap-helper': 'ALEX',
+    'SP102V8P0F7JX67ARQ77WEA3D3CFB5XW39REDT0AM.amm-pool-v2-01': 'ALEX',
+    'SPQC38PW542EQJ5M11CR25P7BS1CA6QT4TBXGB3M.wrapper-alex-v-2-1': 'ALEX',
     // Arkadiko
     'SP2C2YFP12AJZB4MABJBAJ55XECVS7E4PMMZ89YZR.arkadiko': 'Arkadiko',
     'SP2C2YFP12AJZB4MABJBAJ55XECVS7E4PMMZ89YZR.arkadiko-swap': 'Arkadiko',
     'SP2C2YFP12AJZB4MABJBAJ55XECVS7E4PMMZ89YZR.arkadiko-swap-v2-1': 'Arkadiko',
+    'SPQC38PW542EQJ5M11CR25P7BS1CA6QT4TBXGB3M.wrapper-arkadiko-v-1-1': 'Arkadiko',
     // Stackswap
     'SP1Z92MPDQEWZXW36VX71Q25HKF5K2EPCJ304F275.stackswap': 'Stackswap',
     'SP1Z92MPDQEWZXW36VX71Q25HKF5K2EPCJ304F275.stackswap-swap-v5k': 'Stackswap',
@@ -198,13 +201,31 @@ export const parseContractPlatform = (contractId: string): string => {
     'SP1Y5YSTAHZ88XYK1VPDH24GY0HPX5J4JECTMY4A1.univ2-router': 'Velar',
     'SP1Y5YSTAHZ88XYK1VPDH24GY0HPX5J4JECTMY4A1.univ2-path2': 'Velar',
     'SP1Y5YSTAHZ88XYK1VPDH24GY0HPX5J4JECTMY4A1.univ2-share-fee-to': 'Velar',
+    // XYK
+    'SM1793C4R5PZ4NS4VQ4WMP7SKKYVH8JZEWSZ9HCCR.xyk-core-v-1-1': 'XYK',
+    'SM1793C4R5PZ4NS4VQ4WMP7SKKYVH8JZEWSZ9HCCR.xyk-core-v-1-2': 'XYK',
+    'SM1793C4R5PZ4NS4VQ4WMP7SKKYVH8JZEWSZ9HCCR.xyk-pool-sbtc-stx-v-1-1': 'XYK',
+    'SM1793C4R5PZ4NS4VQ4WMP7SKKYVH8JZEWSZ9HCCR.xyk-pool-stx-aeusdc-v-1-2': 'XYK',
+    'SPQC38PW542EQJ5M11CR25P7BS1CA6QT4TBXGB3M.stableswap-usda-aeusdc-v-1-4': 'XYK',
     // Zest Protocol
     'SP2VCQJGH7PHP2DJK7Z0V48AGBHQAW3R3ZW1QF4N.zest': 'Zest Protocol',
     'SP2VCQJGH7PHP2DJK7Z0V48AGBHQAW3R3ZW1QF4N.pool-v1-0': 'Zest Protocol',
     // STX包装和代币
     'SP2C2YFP12AJZB4MABJBAJ55XECVS7E4PMMZ89YZR.wrapped-stx': 'STX包装',
+    'SP2C2YFP12AJZB4MABJBAJ55XECVS7E4PMMZ89YZR.wrapped-stx-token': 'wSTX',
     'SP3DX3H4FEYZJZ586MFBS25ZW3HZDMEW92260R2PR.Wrapped-Bitcoin': 'xBTC',
     'SP3Y2ZSH8P7D50B0VBTSX11S7XSG24M1VB9YFQA4K.token-aeusdc': 'aeUSDC',
+    'SP102V8P0F7JX67ARQ77WEA3D3CFB5XW39REDT0AM.token-wstx-v2': 'wSTX',
+    'SP102V8P0F7JX67ARQ77WEA3D3CFB5XW39REDT0AM.token-wnyc': 'NYC',
+    'SP102V8P0F7JX67ARQ77WEA3D3CFB5XW39REDT0AM.token-waeusdc': 'aeUSDC',
+    'SP1E0XBN9T4B10E9QMR7XMFJPMA19D77WY3KP2QKC.token-wststx': 'stSTX',
+    'SP1E0XBN9T4B10E9QMR7XMFJPMA19D77WY3KP2QKC.token-wusdh': 'USDH',
+    'SP1E0XBN9T4B10E9QMR7XMFJPMA19D77WY3KP2QKC.token-wsbtc': 'sBTC',
+    'SM1793C4R5PZ4NS4VQ4WMP7SKKYVH8JZEWSZ9HCCR.token-stx-v-1-2': 'STX',
+    'SM3VDXK3WZZSA84XXFKAFAF15NNZX32CTSG82JFQ4.sbtc-token': 'sBTC',
+    'SP2XD7417HGPRTREMKF748VNEQPDRR0RMANB7X1NK.token-abtc': 'aBTC',
+    'SP2XD7417HGPRTREMKF748VNEQPDRR0RMANB7X1NK.token-susdt': 'sUSDT',
+    'SP2C2YFP12AJZB4MABJBAJ55XECVS7E4PMMZ89YZR.usda-token': 'USDA',
     // LNSwap
     'SP3MBWGMCVC9KZ5DTAYFMG1D0AEJCR7NENTM3FTK5.lnswap': 'LNSwap',
     'SP3MBWGMCVC9KZ5DTAYFMG1D0AEJCR7NENTM3FTK5.lnswap-v2': 'LNSwap',
@@ -240,6 +261,9 @@ export const parseContractPlatform = (contractId: string): string => {
   }
   if (contractLower.includes('stackswap')) {
     return 'Stackswap';
+  }
+  if (contractLower.includes('xyk')) {
+    return 'XYK';
   }
   
   // 提取合约名称
@@ -286,6 +310,14 @@ export const parseTokenSymbol = (tokenId: string): string => {
     'wrapped-bitcoin': 'xBTC',
     'token-wstx': 'wSTX',
     'token-susdt': 'sUSDT',
+    'token-abtc': 'aBTC',
+    'token-wsbtc': 'sBTC',
+    'sbtc-token': 'sBTC',
+    'token-wnyc': 'NYC',
+    'token-waeusdc': 'aeUSDC',
+    'token-wststx': 'stSTX',
+    'token-wusdh': 'USDH',
+    'usda-token': 'USDA',
     'mia': 'MIA',
     'nyc': 'NYC',
     'banana': 'BANANA',
