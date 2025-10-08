@@ -32,6 +32,7 @@ import {
   parseSwapInfo,
   type StacksTransaction,
 } from '@/api/stacks';
+import PriceMonitor from '@/components/PriceMonitor';
 
 const { Title, Text } = Typography;
 const { Option } = Select;
@@ -45,6 +46,7 @@ interface MonitorData {
   swapInfo: string;
   address: string;
   contractId: string; // 合约地址
+  fee: string; // 手续费
 }
 
 const StacksMonitor: React.FC = () => {
@@ -58,6 +60,8 @@ const StacksMonitor: React.FC = () => {
   const [searchText, setSearchText] = useState('');
   const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
+  const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>([]); // 平台筛选
+  const [selectedContracts, setSelectedContracts] = useState<string[]>([]); // 合约筛选
   const [total, setTotal] = useState(0);
   const [monitorAddress, setMonitorAddress] = useState(''); // 地址监控
 
@@ -80,6 +84,7 @@ const StacksMonitor: React.FC = () => {
           swapInfo: parseSwapInfo(tx),
           address: tx.sender_address,
           contractId: tx.contract_call ? tx.contract_call.contract_id : '-',
+          fee: tx.fee_rate ? (parseInt(tx.fee_rate) / 1000000).toFixed(6) : '0',
         }));
       
       setData(transformedData);
@@ -176,6 +181,15 @@ const StacksMonitor: React.FC = () => {
       ),
     },
     {
+      title: '手续费',
+      dataIndex: 'fee',
+      key: 'fee',
+      width: 120,
+      render: (fee: string) => (
+        <Text>{fee} STX</Text>
+      ),
+    },
+    {
       title: '交易合约',
       dataIndex: 'contractId',
       key: 'contractId',
@@ -229,7 +243,9 @@ const StacksMonitor: React.FC = () => {
       item.swapInfo.toLowerCase().includes(searchText.toLowerCase());
     const matchType = selectedTypes.length === 0 || selectedTypes.includes(item.type);
     const matchStatus = selectedStatuses.length === 0 || selectedStatuses.includes(item.status);
-    return matchSearch && matchType && matchStatus;
+    const matchPlatform = selectedPlatforms.length === 0 || selectedPlatforms.includes(item.platform);
+    const matchContract = selectedContracts.length === 0 || selectedContracts.some(contract => item.contractId.includes(contract));
+    return matchSearch && matchType && matchStatus && matchPlatform && matchContract;
   });
 
   return (
@@ -239,6 +255,9 @@ const StacksMonitor: React.FC = () => {
         <Title level={2}>Stacks 监控</Title>
         <Text type="secondary">实时监控 Stacks 网络上的交易活动</Text>
       </Card>
+
+      {/* 价格监控 - 新增 */}
+      <PriceMonitor autoRefresh={autoRefresh} refreshInterval={refreshInterval} />
 
       {/* 统计信息 */}
       <Row gutter={16} style={{ marginBottom: '20px' }}>
@@ -296,11 +315,16 @@ const StacksMonitor: React.FC = () => {
                   disabled={!autoRefresh}
                   popupMatchSelectWidth={120}
                 >
+                  <Option value={1}>1秒</Option>
+                  <Option value={3}>3秒</Option>
+                  <Option value={5}>5秒</Option>
                   <Option value={10}>10秒</Option>
-                  <Option value={30}>30秒</Option>
                   <Option value={60}>1分钟</Option>
-                  <Option value={120}>2分钟</Option>
-                  <Option value={300}>5分钟</Option>
+                  <Option value={900}>15分钟</Option>
+                  <Option value={1800}>30分钟</Option>
+                  <Option value={3600}>1小时</Option>
+                  <Option value={43200}>12小时</Option>
+                  <Option value={86400}>24小时</Option>
                 </Select>
               </Space.Compact>
             </Space>
@@ -332,6 +356,8 @@ const StacksMonitor: React.FC = () => {
                 setSearchText('');
                 setSelectedTypes([]);
                 setSelectedStatuses([]);
+                setSelectedPlatforms([]);
+                setSelectedContracts([]);
                 setCurrentPage(1);
               }}
             >
@@ -399,6 +425,30 @@ const StacksMonitor: React.FC = () => {
               <Option value="响应中止">响应中止</Option>
               <Option value="后置条件中止">后置条件中止</Option>
             </Select>
+            
+            <Text style={{ marginLeft: 16 }}>平台筛选：</Text>
+            <Select
+              mode="multiple"
+              placeholder="选择平台"
+              value={selectedPlatforms}
+              onChange={setSelectedPlatforms}
+              style={{ minWidth: 200 }}
+            >
+              <Option value="ALEX">ALEX</Option>
+              <Option value="Velar">Velar</Option>
+              <Option value="XYK">XYK</Option>
+              <Option value="Bitflow">Bitflow</Option>
+              <Option value="Arkadiko">Arkadiko</Option>
+              <Option value="Stackswap">Stackswap</Option>
+            </Select>
+            
+            <Text style={{ marginLeft: 16 }}>合约筛选：</Text>
+            <Input
+              placeholder="输入合约地址关键词"
+              value={selectedContracts.join(',')}
+              onChange={(e) => setSelectedContracts(e.target.value ? e.target.value.split(',').map(s => s.trim()) : [])}
+              style={{ minWidth: 200 }}
+            />
           </Space>
         </Space>
       </Card>
