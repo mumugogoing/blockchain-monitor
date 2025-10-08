@@ -27,6 +27,12 @@ interface BitflowPoolResponse {
   };
 }
 
+interface BitflowQuoteResponse {
+  amountOut: number;
+  route: any[];
+  priceImpact: number;
+}
+
 /**
  * Get DEX price from Alex pools
  */
@@ -54,7 +60,42 @@ const getAlexPrice = async (tokenX: string, tokenY: string): Promise<number | nu
 };
 
 /**
- * Get DEX price from Bitflow/XYK pools
+ * Get DEX price from Bitflow Quote API
+ * This provides more accurate pricing by simulating an actual swap
+ */
+const getBitflowQuotePrice = async (
+  tokenXId: string,
+  tokenYId: string,
+  amount: number = 1000000 // Default 1 STX in microSTX
+): Promise<number | null> => {
+  try {
+    const response = await axios.get<BitflowQuoteResponse>(
+      `${BITFLOW_API_BASE}/quote-for-route`,
+      {
+        params: {
+          tokenXId,
+          tokenYId,
+          amount,
+          timestamp: Date.now(),
+        },
+        timeout: 10000,
+      }
+    );
+    
+    if (response.data && response.data.amountOut) {
+      // Calculate price: amountOut / amountIn
+      return response.data.amountOut / amount;
+    }
+    
+    return null;
+  } catch (error) {
+    console.error(`Failed to fetch Bitflow quote for ${tokenXId}/${tokenYId}:`, error);
+    return null;
+  }
+};
+
+/**
+ * Get DEX price from Bitflow/XYK pools (fallback method)
  */
 const getBitflowPrice = async (contractAddress: string): Promise<number | null> => {
   try {
@@ -89,15 +130,27 @@ export const getDEXPrice = async (tokenPair: string): Promise<number | null> => 
     switch (tokenPair) {
       case 'STX-USDC':
       case 'STX-AEUSDC':
-        // Try Alex first
+        // Use Bitflow Quote API for STX/aeUSDC (1 STX = ? aeUSDC)
+        const stxAeusdcPrice = await getBitflowQuotePrice('token-stx', 'token-aeusdc', 1000000);
+        if (stxAeusdcPrice) return stxAeusdcPrice;
+        
+        // Fallback to Alex
         const alexStxPrice = await getAlexPrice('token-wstx', 'token-susdt');
         if (alexStxPrice) return alexStxPrice;
         
-        // Fallback to XYK
+        // Last fallback to XYK pool
         return await getBitflowPrice('sm1793c4r5pz4ns4vq4wmp7skkyvh8jzewsz9hccr.xyk-pool-stx-aeusdc-v-1-2');
         
       case 'STX-SBTC':
-        // Try Bitflow/XYK for sBTC-STX
+        // Use Bitflow Quote API for STX/sBTC
+        const stxSbtcPrice = await getBitflowQuotePrice('token-stx', 'token-sbtc', 3000000000);
+        if (stxSbtcPrice) {
+          // Convert to BTC price (STX price in BTC terms)
+          // We need to get the BTC/USD price to normalize this
+          return stxSbtcPrice;
+        }
+        
+        // Fallback to Bitflow/XYK for sBTC-STX
         const bitflowSbtcPrice = await getBitflowPrice('sm1793c4r5pz4ns4vq4wmp7skkyvh8jzewsz9hccr.xyk-pool-sbtc-stx-v-1-1');
         if (bitflowSbtcPrice) return bitflowSbtcPrice;
         
@@ -105,8 +158,24 @@ export const getDEXPrice = async (tokenPair: string): Promise<number | null> => 
         return await getAlexPrice('token-wstx', 'token-sbtc');
         
       case 'USDA-AEUSDC':
+        // Use Bitflow Quote API for USDA/aeUSDC
+        const usdaPrice = await getBitflowQuotePrice('token-usda', 'token-aeusdc', 1000000);
+        if (usdaPrice) return usdaPrice;
+        
         // Try XYK stableswap
         return await getBitflowPrice('spqc38pw542eqj5m11cr25p7bs1ca6qt4tbxgb3m.stableswap-usda-aeusdc-v-1-4');
+      
+      case 'DOG-STX':
+        // Use Bitflow Quote API for DOG/STX
+        const dogStxPrice = await getBitflowQuotePrice('token-dog', 'token-stx', 526489688400);
+        if (dogStxPrice) return dogStxPrice;
+        return null;
+        
+      case 'DOG-SBTC':
+        // Use Bitflow Quote API for DOG/sBTC
+        const dogSbtcPrice = await getBitflowQuotePrice('token-dog', 'token-sbtc', 526489688400);
+        if (dogSbtcPrice) return dogSbtcPrice;
+        return null;
         
       default:
         console.log(`DEX price fetch for ${tokenPair} - no configuration found`);

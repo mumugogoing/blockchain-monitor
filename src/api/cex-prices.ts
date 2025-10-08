@@ -200,16 +200,26 @@ export const getTokenPriceData = async (
   
   let priceDiff: number | undefined;
   let priceDiffPercent: number | undefined;
+  let normalizedDexPrice: number | undefined = dexPrice;
   
-  if (dexPrice && averageCexPrice) {
-    priceDiff = dexPrice - averageCexPrice;
+  // Normalize DEX price for comparison
+  if (dexPrice !== undefined && averageCexPrice !== undefined) {
+    // For stablecoins, DEX price should be close to 1.0
+    if (['aeUSDC', 'USDA', 'USDC', 'sUSDT', 'USDT'].includes(token)) {
+      // Stablecoins should be ~1.0, normalize to USDT
+      normalizedDexPrice = 1.0;
+    } else {
+      normalizedDexPrice = dexPrice;
+    }
+    
+    priceDiff = normalizedDexPrice - averageCexPrice;
     priceDiffPercent = (priceDiff / averageCexPrice) * 100;
   }
   
   return {
     token,
     cexPrices,
-    dexPrice,
+    dexPrice: normalizedDexPrice,
     averageCexPrice,
     priceDiff,
     priceDiffPercent,
@@ -218,21 +228,30 @@ export const getTokenPriceData = async (
 
 /**
  * Token symbol mapping for CEX
+ * Maps DEX tokens to their CEX equivalents
+ * Note: aeUSDC, USDA, USDC, USDT, sUSDT are all stable coins ≈ $1
+ *       sBTC, xBTC, aBTC are all Bitcoin equivalents
  */
 export const getCEXSymbol = (token: string): string => {
   const symbolMap: Record<string, string> = {
     'STX': 'STXUSDT',
+    // Bitcoin equivalents - all map to BTC
     'SBTC': 'BTCUSDT',
     'sBTC': 'BTCUSDT',
     'xBTC': 'BTCUSDT',
     'aBTC': 'BTCUSDT',
-    'aeUSDC': 'USDCUSDT',
-    'USDA': 'USDAUSDT',
+    // Stablecoin equivalents - all map to USDT
+    'aeUSDC': 'USDTUSDT',  // Changed from USDCUSDT to USDTUSDT for better liquidity
+    'USDA': 'USDTUSDT',     // Changed from USDAUSDT
+    'USDC': 'USDTUSDT',
     'sUSDT': 'USDTUSDT',
+    'USDT': 'USDTUSDT',
+    // Other tokens
     'ALEX': 'ALEXUSDT',
     'VELAR': 'VELARUSDT',
     'WELSH': 'WELSHUSDT',
     'DIKO': 'DIKOUSDT',
+    'DOG': 'DOGUSDT',  // Added DOG token
   };
   
   return symbolMap[token] || `${token}USDT`;
