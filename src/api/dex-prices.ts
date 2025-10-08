@@ -1,28 +1,117 @@
 import axios from 'axios';
 
 const STACKS_API_BASE = 'https://api.mainnet.hiro.so';
+const ALEX_API_BASE = 'https://api.alexgo.io/v2/public';
+const BITFLOW_API_BASE = 'https://app.bitflow.finance/api/sdk';
+
+interface AlexPool {
+  token_x: string;
+  token_y: string;
+  balance_x: number;
+  balance_y: number;
+}
+
+interface AlexPoolsResponse {
+  pools: AlexPool[];
+}
+
+interface BitflowPoolData {
+  balance_x: number;
+  balance_y: number;
+}
+
+interface BitflowPoolResponse {
+  data: {
+    sbtc?: BitflowPoolData;
+    [key: string]: any;
+  };
+}
+
+/**
+ * Get DEX price from Alex pools
+ */
+const getAlexPrice = async (tokenX: string, tokenY: string): Promise<number | null> => {
+  try {
+    const response = await axios.get<AlexPoolsResponse>(`${ALEX_API_BASE}/pools`, {
+      timeout: 5000,
+    });
+    
+    if (response.data && response.data.pools) {
+      const pool = response.data.pools.find(
+        (p) => p.token_x === tokenX && p.token_y === tokenY
+      );
+      
+      if (pool && pool.balance_x > 0 && pool.balance_y > 0) {
+        return pool.balance_y / pool.balance_x;
+      }
+    }
+    
+    return null;
+  } catch (error) {
+    console.error('Failed to fetch Alex price:', error);
+    return null;
+  }
+};
+
+/**
+ * Get DEX price from Bitflow/XYK pools
+ */
+const getBitflowPrice = async (contractAddress: string): Promise<number | null> => {
+  try {
+    const response = await axios.get<BitflowPoolResponse>(
+      `${BITFLOW_API_BASE}/get-pool-by-contract`,
+      {
+        params: { contract: contractAddress },
+        timeout: 5000,
+      }
+    );
+    
+    if (response.data && response.data.data) {
+      const poolData = response.data.data.sbtc || response.data.data;
+      if (poolData && poolData.balance_x > 0 && poolData.balance_y > 0) {
+        return poolData.balance_y / poolData.balance_x;
+      }
+    }
+    
+    return null;
+  } catch (error) {
+    console.error('Failed to fetch Bitflow price:', error);
+    return null;
+  }
+};
 
 /**
  * Get DEX price from Stacks contract calls
- * This is a simplified implementation - you may need to adjust based on actual DEX contracts
  */
 export const getDEXPrice = async (tokenPair: string): Promise<number | null> => {
   try {
-    // For demonstration, we'll use a mock implementation
-    // In a real scenario, you'd need to call the DEX contract's read-only function
-    // to get the current pool reserves and calculate the price
-    
-    // Example for XYK pools:
-    // const response = await axios.post(`${STACKS_API_BASE}/v2/contracts/call-read/...`, {
-    //   contract_address: 'SM1793C4R5PZ4NS4VQ4WMP7SKKYVH8JZEWSZ9HCCR',
-    //   contract_name: 'xyk-pool-stx-aeusdc-v-1-2',
-    //   function_name: 'get-pool-details',
-    //   arguments: []
-    // });
-    
-    // For now, return null to indicate price fetching needs implementation
-    console.log(`DEX price fetch for ${tokenPair} - requires contract integration`);
-    return null;
+    // Map token pairs to their DEX sources
+    switch (tokenPair) {
+      case 'STX-USDC':
+      case 'STX-AEUSDC':
+        // Try Alex first
+        const alexStxPrice = await getAlexPrice('token-wstx', 'token-susdt');
+        if (alexStxPrice) return alexStxPrice;
+        
+        // Fallback to XYK
+        return await getBitflowPrice('sm1793c4r5pz4ns4vq4wmp7skkyvh8jzewsz9hccr.xyk-pool-stx-aeusdc-v-1-2');
+        
+      case 'STX-SBTC':
+        // Try Bitflow/XYK for sBTC-STX
+        const bitflowSbtcPrice = await getBitflowPrice('sm1793c4r5pz4ns4vq4wmp7skkyvh8jzewsz9hccr.xyk-pool-sbtc-stx-v-1-1');
+        if (bitflowSbtcPrice) return bitflowSbtcPrice;
+        
+        // Try Alex as fallback
+        return await getAlexPrice('token-wstx', 'token-sbtc');
+        
+      case 'USDA-AEUSDC':
+        // Try XYK stableswap
+        return await getBitflowPrice('spqc38pw542eqj5m11cr25p7bs1ca6qt4tbxgb3m.stableswap-usda-aeusdc-v-1-4');
+        
+      default:
+        console.log(`DEX price fetch for ${tokenPair} - no configuration found`);
+        return null;
+    }
   } catch (error) {
     console.error(`DEX price fetch failed for ${tokenPair}:`, error);
     return null;
