@@ -256,8 +256,8 @@ const StacksMonitor: React.FC = () => {
         <Text type="secondary">实时监控 Stacks 网络上的交易活动</Text>
       </Card>
 
-      {/* 价格监控 - 新增 */}
-      <PriceMonitor autoRefresh={autoRefresh} refreshInterval={refreshInterval} />
+      {/* 价格监控 - 独立自动刷新控制 */}
+      <PriceMonitor />
 
       {/* 统计信息 */}
       <Row gutter={16} style={{ marginBottom: '20px' }}>
@@ -319,8 +319,9 @@ const StacksMonitor: React.FC = () => {
                   <Option value={3}>3秒</Option>
                   <Option value={5}>5秒</Option>
                   <Option value={10}>10秒</Option>
+                  <Option value={30}>30秒</Option>
                   <Option value={60}>1分钟</Option>
-                  <Option value={900}>15分钟</Option>
+                  <Option value={600}>10分钟</Option>
                   <Option value={1800}>30分钟</Option>
                   <Option value={3600}>1小时</Option>
                   <Option value={43200}>12小时</Option>

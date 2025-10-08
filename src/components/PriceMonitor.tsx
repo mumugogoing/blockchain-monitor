@@ -1,23 +1,21 @@
 import React, { useState, useEffect } from 'react';
-import { Card, Space, Typography, Statistic, Row, Col, Tag, Switch, message, Spin } from 'antd';
+import { Card, Space, Typography, Statistic, Row, Col, Tag, Switch, message, Spin, Select, InputNumber } from 'antd';
 import { ArrowUpOutlined, ArrowDownOutlined } from '@ant-design/icons';
 import { getTokenPriceData, getCEXSymbol, type TokenPrice } from '@/api/cex-prices';
 import { getDEXPrice } from '@/api/dex-prices';
 
 const { Text } = Typography;
+const { Option } = Select;
 
 interface PriceMonitorProps {
-  autoRefresh?: boolean;
-  refreshInterval?: number; // in seconds
+  // No props needed - component manages its own state
 }
 
-const PriceMonitor: React.FC<PriceMonitorProps> = ({ 
-  autoRefresh: defaultAutoRefresh = false,
-  refreshInterval: defaultRefreshInterval = 60 
-}) => {
+const PriceMonitor: React.FC<PriceMonitorProps> = () => {
   const [priceData, setPriceData] = useState<TokenPrice[]>([]);
   const [loading, setLoading] = useState(false);
-  const [autoRefresh, setAutoRefresh] = useState(defaultAutoRefresh);
+  const [autoRefresh, setAutoRefresh] = useState(false);
+  const [refreshInterval, setRefreshInterval] = useState(30); // in seconds
   const [lastUpdateTime, setLastUpdateTime] = useState<string>('');
 
   // Tokens to monitor - focusing on major Stacks tokens with CEX listings
@@ -57,12 +55,12 @@ const PriceMonitor: React.FC<PriceMonitorProps> = ({
     if (autoRefresh) {
       interval = window.setInterval(() => {
         fetchPrices();
-      }, defaultRefreshInterval * 1000);
+      }, refreshInterval * 1000);
     }
     return () => {
       if (interval) clearInterval(interval);
     };
-  }, [autoRefresh, defaultRefreshInterval]);
+  }, [autoRefresh, refreshInterval]);
 
   const renderPriceDiff = (priceDiff?: number, priceDiffPercent?: number) => {
     if (priceDiff === undefined || priceDiffPercent === undefined) {
@@ -104,18 +102,51 @@ const PriceMonitor: React.FC<PriceMonitorProps> = ({
       title={
         <Space>
           <Text strong>价格监控与套利机会</Text>
-          <Switch
-            checked={autoRefresh}
-            onChange={setAutoRefresh}
-            checkedChildren="自动刷新"
-            unCheckedChildren="手动刷新"
-            size="small"
-          />
           {lastUpdateTime && <Text type="secondary" style={{ fontSize: '12px' }}>最后更新: {lastUpdateTime}</Text>}
         </Space>
       }
       style={{ marginBottom: '20px' }}
-      extra={loading && <Spin size="small" />}
+      extra={
+        <Space>
+          <Text>自动刷新</Text>
+          <Switch
+            checked={autoRefresh}
+            onChange={setAutoRefresh}
+            checkedChildren="开启"
+            unCheckedChildren="关闭"
+            size="small"
+          />
+          <InputNumber
+            min={1}
+            max={86400}
+            value={refreshInterval}
+            onChange={(value) => setRefreshInterval(value || 30)}
+            style={{ width: '80px' }}
+            disabled={!autoRefresh}
+            size="small"
+          />
+          <Select
+            value={refreshInterval}
+            onChange={setRefreshInterval}
+            style={{ width: '100px' }}
+            disabled={!autoRefresh}
+            size="small"
+          >
+            <Option value={1}>1秒</Option>
+            <Option value={3}>3秒</Option>
+            <Option value={5}>5秒</Option>
+            <Option value={10}>10秒</Option>
+            <Option value={30}>30秒</Option>
+            <Option value={60}>1分钟</Option>
+            <Option value={600}>10分钟</Option>
+            <Option value={1800}>30分钟</Option>
+            <Option value={3600}>1小时</Option>
+            <Option value={43200}>12小时</Option>
+            <Option value={86400}>24小时</Option>
+          </Select>
+          {loading && <Spin size="small" />}
+        </Space>
+      }
     >
       <Row gutter={[16, 16]}>
         {priceData.map((data) => (
