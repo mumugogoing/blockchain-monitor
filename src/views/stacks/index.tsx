@@ -13,10 +13,13 @@ import {
   message,
   Input,
   Select,
+  Tooltip,
+  InputNumber,
 } from 'antd';
 import {
   ReloadOutlined,
   SearchOutlined,
+  LinkOutlined,
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import {
@@ -116,7 +119,18 @@ const StacksMonitor: React.FC = () => {
       key: 'id',
       width: 150,
       render: (id: string) => (
-        <Text copyable={{ text: id }}>{id.substring(0, 10)}...</Text>
+        <Tooltip title={id}>
+          <Space>
+            <Text copyable={{ text: id }}>{id.substring(0, 10)}...</Text>
+            <a
+              href={`https://explorer.hiro.so/txid/${id}?chain=mainnet`}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <LinkOutlined />
+            </a>
+          </Space>
+        </Tooltip>
       ),
     },
     {
@@ -168,7 +182,18 @@ const StacksMonitor: React.FC = () => {
       width: 200,
       render: (contractId: string) => (
         contractId && contractId !== '-' ? (
-          <Text copyable={{ text: contractId }}>{formatStacksAddress(contractId)}</Text>
+          <Tooltip title={contractId}>
+            <Space>
+              <Text copyable={{ text: contractId }}>{formatStacksAddress(contractId)}</Text>
+              <a
+                href={`https://explorer.hiro.so/txid/${contractId}?chain=mainnet`}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <LinkOutlined />
+              </a>
+            </Space>
+          </Tooltip>
         ) : (
           <Text type="secondary">-</Text>
         )
@@ -180,7 +205,18 @@ const StacksMonitor: React.FC = () => {
       key: 'address',
       width: 180,
       render: (address: string) => (
-        <Text copyable={{ text: address }}>{formatStacksAddress(address)}</Text>
+        <Tooltip title={address}>
+          <Space>
+            <Text copyable={{ text: address }}>{formatStacksAddress(address)}</Text>
+            <a
+              href={`https://explorer.hiro.so/address/${address}?chain=mainnet`}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <LinkOutlined />
+            </a>
+          </Space>
+        </Tooltip>
       ),
     },
   ];
@@ -243,18 +279,30 @@ const StacksMonitor: React.FC = () => {
                 checkedChildren="开启"
                 unCheckedChildren="关闭"
               />
-              <Select
-                value={refreshInterval}
-                onChange={setRefreshInterval}
-                style={{ width: '100%' }}
-                disabled={!autoRefresh}
-              >
-                <Option value={10}>10秒</Option>
-                <Option value={30}>30秒</Option>
-                <Option value={60}>1分钟</Option>
-                <Option value={120}>2分钟</Option>
-                <Option value={300}>5分钟</Option>
-              </Select>
+              <Space.Compact style={{ width: '100%' }}>
+                <InputNumber
+                  min={5}
+                  max={3600}
+                  value={refreshInterval}
+                  onChange={(value) => setRefreshInterval(value || 30)}
+                  style={{ width: '70%' }}
+                  disabled={!autoRefresh}
+                  placeholder="秒"
+                />
+                <Select
+                  value={refreshInterval}
+                  onChange={setRefreshInterval}
+                  style={{ width: '30%' }}
+                  disabled={!autoRefresh}
+                  popupMatchSelectWidth={120}
+                >
+                  <Option value={10}>10秒</Option>
+                  <Option value={30}>30秒</Option>
+                  <Option value={60}>1分钟</Option>
+                  <Option value={120}>2分钟</Option>
+                  <Option value={300}>5分钟</Option>
+                </Select>
+              </Space.Compact>
             </Space>
           </Card>
         </Col>
