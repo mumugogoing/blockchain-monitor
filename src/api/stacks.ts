@@ -483,19 +483,21 @@ export const parseSwapInfo = (tx: StacksTransaction): string => {
       toToken = 'Token B';
     }
     
-    // 构建swap信息字符串
+    // 构建swap信息字符串 - 使用小写格式以匹配示例 "3000 stx==>1853 aeusdc"
     if (fromToken && toToken) {
+      const fromTokenLower = fromToken.toLowerCase();
+      const toTokenLower = toToken.toLowerCase();
       if (fromAmount && toAmount) {
-        return `${fromAmount} ${fromToken} ==> ${toAmount} ${toToken}`;
+        return `${fromAmount} ${fromTokenLower}==>${toAmount} ${toTokenLower}`;
       } else if (fromAmount) {
-        return `${fromAmount} ${fromToken} ==> ${toToken}`;
+        return `${fromAmount} ${fromTokenLower}==>${toTokenLower}`;
       } else if (toAmount) {
-        return `${fromToken} ==> ${toAmount} ${toToken}`;
+        return `${fromTokenLower}==>${toAmount} ${toTokenLower}`;
       } else {
-        return `${fromToken} ==> ${toToken}`;
+        return `${fromTokenLower}==>${toTokenLower}`;
       }
     } else if (fromToken && fromAmount) {
-      return `${fromAmount} ${fromToken} (swap)`;
+      return `${fromAmount} ${fromToken.toLowerCase()} (swap)`;
     }
     
     // 如果无法提取详细信息，至少标记为swap
@@ -520,12 +522,24 @@ const formatAmount = (amount: string): string => {
   // 如果金额很大，可能是微单位，需要转换
   if (num > 1000000) {
     const converted = num / 1000000;
-    return converted.toFixed(2);
+    // 根据大小决定精度
+    if (converted >= 1000) {
+      return converted.toFixed(0);
+    } else if (converted >= 1) {
+      return converted.toFixed(2);
+    } else {
+      return converted.toFixed(6);
+    }
   }
   
   // 如果金额较小，保留更多小数位
   if (num < 1) {
     return num.toFixed(6);
+  }
+  
+  // 中等金额
+  if (num >= 1000) {
+    return num.toFixed(0);
   }
   
   return num.toFixed(2);
