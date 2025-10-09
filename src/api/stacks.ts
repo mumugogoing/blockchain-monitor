@@ -421,8 +421,9 @@ export const parseSwapInfo = (tx: StacksTransaction): string => {
     let fromAmount = '';
     let toAmount = '';
     const tokenContracts: string[] = [];
+    const amounts: string[] = [];
     
-    // 解析函数参数
+    // 解析函数参数 - 更全面的提取
     args.forEach((arg: any) => {
       if (typeof arg === 'object' && arg !== null) {
         const argStr = JSON.stringify(arg);
@@ -453,15 +454,29 @@ export const parseSwapInfo = (tx: StacksTransaction): string => {
           }
         }
         
-        // 尝试提取金额信息
-        if (arg.uint || arg.int) {
-          const amount = arg.uint || arg.int;
-          if (!fromAmount) {
-            fromAmount = formatAmount(amount);
-          } else if (!toAmount) {
-            toAmount = formatAmount(amount);
+        // 提取金额 - 检查多种格式
+        if (arg.uint) {
+          amounts.push(arg.uint.toString());
+        } else if (arg.int) {
+          amounts.push(arg.int.toString());
+        } else if (arg.value && typeof arg.value === 'number') {
+          amounts.push(arg.value.toString());
+        } else if (arg.value && typeof arg.value === 'object') {
+          // 递归检查嵌套对象中的金额
+          if (arg.value.uint) {
+            amounts.push(arg.value.uint.toString());
+          } else if (arg.value.int) {
+            amounts.push(arg.value.int.toString());
           }
         }
+        
+        // 检查是否有amount, dx, dy等常见的金额字段名
+        ['amount', 'dx', 'dy', 'amount-in', 'amount-out', 'min-dy', 'min-dx'].forEach(key => {
+          if (arg[key]) {
+            const val = typeof arg[key] === 'object' && arg[key].uint ? arg[key].uint : arg[key];
+            if (val) amounts.push(val.toString());
+          }
+        });
       } else if (typeof arg === 'string') {
         // 字符串参数可能包含代币信息
         const symbol = parseTokenSymbol(arg);
@@ -472,13 +487,17 @@ export const parseSwapInfo = (tx: StacksTransaction): string => {
         }
       } else if (typeof arg === 'number') {
         // 数字参数可能是金额
-        if (!fromAmount) {
-          fromAmount = formatAmount(arg.toString());
-        } else if (!toAmount) {
-          toAmount = formatAmount(arg.toString());
-        }
+        amounts.push(arg.toString());
       }
     });
+    
+    // 分配金额
+    if (amounts.length >= 1 && !fromAmount) {
+      fromAmount = formatAmount(amounts[0]);
+    }
+    if (amounts.length >= 2 && !toAmount) {
+      toAmount = formatAmount(amounts[1]);
+    }
     
     // 从提取的合约地址中解析代币符号
     if (tokenContracts.length >= 1 && !fromToken) {
@@ -508,7 +527,7 @@ export const parseSwapInfo = (tx: StacksTransaction): string => {
       toToken = 'Token B';
     }
     
-    // 构建swap信息字符串 - 使用小写格式以匹配示例 "3000 stx==>1853 aeusdc"
+    // 构建swap信息字符串 - 使用小写格式以匹配示例 "0.0100 abtc==>1171 susdt"
     if (fromToken && toToken) {
       const fromTokenLower = fromToken.toLowerCase();
       const toTokenLower = toToken.toLowerCase();
@@ -553,13 +572,18 @@ const formatAmount = (amount: string): string => {
     } else if (converted >= 1) {
       return converted.toFixed(2);
     } else {
-      return converted.toFixed(6);
+      // 对于小数，保留4位有效数字
+      return converted.toFixed(4);
     }
   }
   
   // 如果金额较小，保留更多小数位
   if (num < 1) {
-    return num.toFixed(6);
+    // 对于非常小的数字，保留4位有效数字
+    if (num < 0.0001) {
+      return num.toFixed(8);
+    }
+    return num.toFixed(4);
   }
   
   // 中等金额

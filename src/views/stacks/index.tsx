@@ -62,8 +62,9 @@ const StacksMonitor: React.FC = () => {
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
   const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>([]); // 平台筛选
   const [selectedContracts, setSelectedContracts] = useState<string[]>([]); // 合约筛选
-  const [total, setTotal] = useState(0);
-  const [monitorAddress, setMonitorAddress] = useState(''); // 地址监控
+  const [minAmount, setMinAmount] = useState<number | null>(null); // 最小交易金额
+  const [maxAmount, setMaxAmount] = useState<number | null>(null); // 最大交易金额
+  const [filterCurrency, setFilterCurrency] = useState<string>(''); // 筛选币种
 
   // 获取监控数据
   const fetchData = async () => {
@@ -88,7 +89,6 @@ const StacksMonitor: React.FC = () => {
         }));
       
       setData(transformedData);
-      setTotal(result.total);
       setLastUpdateTime(new Date().toLocaleTimeString('zh-CN'));
       message.success('数据已更新');
     } catch (error) {
@@ -191,6 +191,26 @@ const StacksMonitor: React.FC = () => {
       ),
     },
     {
+      title: '发送地址',
+      dataIndex: 'address',
+      key: 'address',
+      width: 180,
+      render: (address: string) => (
+        <Tooltip title={address}>
+          <Space>
+            <Text copyable={{ text: address }}>{formatStacksAddress(address)}</Text>
+            <a
+              href={`https://explorer.hiro.so/address/${address}?chain=mainnet`}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <LinkOutlined />
+            </a>
+          </Space>
+        </Tooltip>
+      ),
+    },
+    {
       title: '交易合约',
       dataIndex: 'contractId',
       key: 'contractId',
@@ -214,26 +234,6 @@ const StacksMonitor: React.FC = () => {
         )
       ),
     },
-    {
-      title: '发送地址',
-      dataIndex: 'address',
-      key: 'address',
-      width: 180,
-      render: (address: string) => (
-        <Tooltip title={address}>
-          <Space>
-            <Text copyable={{ text: address }}>{formatStacksAddress(address)}</Text>
-            <a
-              href={`https://explorer.hiro.so/address/${address}?chain=mainnet`}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              <LinkOutlined />
-            </a>
-          </Space>
-        </Tooltip>
-      ),
-    },
   ];
 
   // 过滤数据
@@ -246,112 +246,159 @@ const StacksMonitor: React.FC = () => {
     const matchStatus = selectedStatuses.length === 0 || selectedStatuses.includes(item.status);
     const matchPlatform = selectedPlatforms.length === 0 || selectedPlatforms.includes(item.platform);
     const matchContract = selectedContracts.length === 0 || selectedContracts.some(contract => item.contractId.includes(contract));
-    return matchSearch && matchType && matchStatus && matchPlatform && matchContract;
+    
+    // 金额筛选 - 从swapInfo中提取金额
+    let matchAmount = true;
+    if ((minAmount !== null || maxAmount !== null || filterCurrency) && item.swapInfo) {
+      const swapParts = item.swapInfo.split('==>');
+      if (swapParts.length === 2) {
+        // 从第一部分提取金额和币种，如 "3000 stx"
+        const fromMatch = swapParts[0].trim().match(/^([\d.]+)\s+(\w+)$/);
+        // 从第二部分提取金额和币种，如 "1853 aeusdc"
+        const toMatch = swapParts[1].trim().match(/^([\d.]+)\s+(\w+)$/);
+        
+        if (fromMatch || toMatch) {
+          const fromAmount = fromMatch ? parseFloat(fromMatch[1]) : null;
+          const fromCurrency = fromMatch ? fromMatch[2].toLowerCase() : '';
+          const toAmount = toMatch ? parseFloat(toMatch[1]) : null;
+          const toCurrency = toMatch ? toMatch[2].toLowerCase() : '';
+          
+          // 币种筛选 - 检查fromCurrency或toCurrency是否匹配
+          if (filterCurrency) {
+            const currencyLower = filterCurrency.toLowerCase();
+            matchAmount = fromCurrency === currencyLower || toCurrency === currencyLower;
+          }
+          
+          // 金额筛选 - 根据币种筛选对应的金额
+          if (matchAmount && (minAmount !== null || maxAmount !== null)) {
+            let targetAmount: number | null = null;
+            
+            if (filterCurrency) {
+              // 如果指定了币种，使用对应币种的金额
+              if (fromCurrency === filterCurrency.toLowerCase()) {
+                targetAmount = fromAmount;
+              } else if (toCurrency === filterCurrency.toLowerCase()) {
+                targetAmount = toAmount;
+              }
+            } else {
+              // 如果没有指定币种，使用第一个金额（通常是发送金额）
+              targetAmount = fromAmount;
+            }
+            
+            if (targetAmount !== null) {
+              if (minAmount !== null && targetAmount < minAmount) {
+                matchAmount = false;
+              }
+              if (maxAmount !== null && targetAmount > maxAmount) {
+                matchAmount = false;
+              }
+            } else {
+              matchAmount = false;
+            }
+          }
+        } else {
+          // 如果没有金额信息，且设置了金额筛选，则不匹配
+          if (minAmount !== null || maxAmount !== null) {
+            matchAmount = false;
+          }
+        }
+      } else {
+        // 如果没有符合格式的swap信息，且设置了金额筛选，则不匹配
+        if (minAmount !== null || maxAmount !== null) {
+          matchAmount = false;
+        }
+      }
+    }
+    
+    return matchSearch && matchType && matchStatus && matchPlatform && matchContract && matchAmount;
   });
 
   return (
     <div style={{ padding: '20px' }}>
-      {/* 页面标题 */}
-      <Card style={{ marginBottom: '20px' }}>
-        <Title level={2}>Stacks 监控</Title>
-        <Text type="secondary">实时监控 Stacks 网络上的交易活动</Text>
+      {/* 页面标题 - 更紧凑 */}
+      <Card size="small" style={{ marginBottom: '10px' }}>
+        <Title level={3} style={{ margin: 0 }}>Stacks 监控</Title>
+        <Text type="secondary" style={{ fontSize: '12px' }}>实时监控 Stacks 网络上的交易活动</Text>
       </Card>
 
       {/* 价格监控 - 独立自动刷新控制 */}
       <PriceMonitor />
 
-      {/* 统计信息 */}
-      <Row gutter={16} style={{ marginBottom: '20px' }}>
+      {/* 统计信息 - 更紧凑 */}
+      <Row gutter={8} style={{ marginBottom: '10px' }}>
         <Col span={6}>
-          <Card>
+          <Card size="small">
             <Statistic
               title="显示数据数"
               value={filteredData.length}
               suffix="条"
+              valueStyle={{ fontSize: '18px' }}
             />
           </Card>
         </Col>
         <Col span={6}>
-          <Card>
+          <Card size="small">
             <Statistic
               title="当前页"
               value={currentPage}
               suffix={`/ ${pageSize}条/页`}
+              valueStyle={{ fontSize: '18px' }}
             />
           </Card>
         </Col>
         <Col span={6}>
-          <Card>
+          <Card size="small">
             <Statistic
               title="最后更新"
               value={lastUpdateTime || '未更新'}
-              valueStyle={{ fontSize: '16px' }}
+              valueStyle={{ fontSize: '14px' }}
             />
           </Card>
         </Col>
         <Col span={6}>
-          <Card>
-            <Space direction="vertical" style={{ width: '100%' }}>
-              <Text>自动刷新</Text>
+          <Card size="small">
+            <Space direction="horizontal" style={{ width: '100%' }} size="small">
+              <Text style={{ fontSize: '12px' }}>自动刷新</Text>
               <Switch
                 checked={autoRefresh}
                 onChange={setAutoRefresh}
-                checkedChildren="开启"
-                unCheckedChildren="关闭"
+                size="small"
               />
-              <Space.Compact style={{ width: '100%' }}>
-                <InputNumber
-                  min={1}
-                  max={3600}
-                  value={refreshInterval}
-                  onChange={(value) => setRefreshInterval(value || 30)}
-                  style={{ width: '70%' }}
-                  disabled={!autoRefresh}
-                  placeholder="秒"
-                />
-                <Select
-                  value={refreshInterval}
-                  onChange={setRefreshInterval}
-                  style={{ width: '30%' }}
-                  disabled={!autoRefresh}
-                  popupMatchSelectWidth={120}
-                >
-                  <Option value={1}>1秒</Option>
-                  <Option value={3}>3秒</Option>
-                  <Option value={5}>5秒</Option>
-                  <Option value={10}>10秒</Option>
-                  <Option value={30}>30秒</Option>
-                  <Option value={60}>1分钟</Option>
-                  <Option value={600}>10分钟</Option>
-                  <Option value={1800}>30分钟</Option>
-                  <Option value={3600}>1小时</Option>
-                  <Option value={43200}>12小时</Option>
-                  <Option value={86400}>24小时</Option>
-                </Select>
-              </Space.Compact>
+              <InputNumber
+                min={1}
+                max={3600}
+                value={refreshInterval}
+                onChange={(value) => setRefreshInterval(value || 30)}
+                style={{ width: '60px' }}
+                disabled={!autoRefresh}
+                size="small"
+              />
+              <Text style={{ fontSize: '12px' }}>秒</Text>
             </Space>
           </Card>
         </Col>
       </Row>
 
-      {/* 操作栏和筛选 */}
-      <Card style={{ marginBottom: '20px' }}>
-        <Space direction="vertical" style={{ width: '100%' }} size="middle">
-          <Space wrap>
+      {/* 操作栏和筛选 - 更紧凑 */}
+      <Card size="small" style={{ marginBottom: '10px' }}>
+        <Space direction="vertical" style={{ width: '100%' }} size="small">
+          <Space wrap size="small">
             <Button
               type="primary"
               icon={<ReloadOutlined />}
               onClick={fetchData}
               loading={loading}
+              size="small"
             >
-              刷新数据
+              刷新
             </Button>
             <Input
               placeholder="搜索交易ID、地址或交易信息"
               prefix={<SearchOutlined />}
               value={searchText}
               onChange={(e) => setSearchText(e.target.value)}
-              style={{ width: 350 }}
+              style={{ width: 300 }}
+              size="small"
             />
             <Button
               onClick={() => {
@@ -360,67 +407,40 @@ const StacksMonitor: React.FC = () => {
                 setSelectedStatuses([]);
                 setSelectedPlatforms([]);
                 setSelectedContracts([]);
+                setMinAmount(null);
+                setMaxAmount(null);
+                setFilterCurrency('');
                 setCurrentPage(1);
               }}
+              size="small"
             >
               清除筛选
             </Button>
           </Space>
           
-          <Space wrap>
-            <Text>地址监控：</Text>
-            <Input
-              placeholder="输入STX地址进行监控"
-              value={monitorAddress}
-              onChange={(e) => setMonitorAddress(e.target.value)}
-              style={{ width: 300 }}
-            />
-            <Button
-              type="primary"
-              onClick={() => {
-                if (monitorAddress) {
-                  setSearchText(monitorAddress);
-                  message.success(`已开始监控地址: ${formatStacksAddress(monitorAddress)}`);
-                  // 这里可以集成推送通知服务（如 Firebase Cloud Messaging, OneSignal 等）
-                  message.info('地址交易通知功能需要配置推送服务（如 Firebase/OneSignal）');
-                } else {
-                  message.warning('请输入要监控的地址');
-                }
-              }}
-            >
-              开始监控
-            </Button>
-            <Button
-              onClick={() => {
-                setMonitorAddress('');
-                message.info('已停止地址监控');
-              }}
-            >
-              停止监控
-            </Button>
-          </Space>
-          
-          <Space wrap>
-            <Text>类型筛选：</Text>
+          <Space wrap size="small">
+            <Text style={{ fontSize: '12px' }}>类型:</Text>
             <Select
               mode="multiple"
               placeholder="选择类型"
               value={selectedTypes}
               onChange={setSelectedTypes}
-              style={{ minWidth: 200 }}
+              style={{ minWidth: 150 }}
+              size="small"
             >
               <Option value="合约调用">合约调用</Option>
               <Option value="智能合约">智能合约</Option>
               <Option value="Coinbase">Coinbase</Option>
             </Select>
             
-            <Text style={{ marginLeft: 16 }}>状态筛选：</Text>
+            <Text style={{ fontSize: '12px' }}>状态:</Text>
             <Select
               mode="multiple"
               placeholder="选择状态"
               value={selectedStatuses}
               onChange={setSelectedStatuses}
-              style={{ minWidth: 200 }}
+              style={{ minWidth: 150 }}
+              size="small"
             >
               <Option value="成功">成功</Option>
               <Option value="待处理">待处理</Option>
@@ -428,13 +448,14 @@ const StacksMonitor: React.FC = () => {
               <Option value="后置条件中止">后置条件中止</Option>
             </Select>
             
-            <Text style={{ marginLeft: 16 }}>平台筛选：</Text>
+            <Text style={{ fontSize: '12px' }}>平台:</Text>
             <Select
               mode="multiple"
               placeholder="选择平台"
               value={selectedPlatforms}
               onChange={setSelectedPlatforms}
-              style={{ minWidth: 200 }}
+              style={{ minWidth: 150 }}
+              size="small"
             >
               <Option value="ALEX">ALEX</Option>
               <Option value="Velar">Velar</Option>
@@ -444,19 +465,63 @@ const StacksMonitor: React.FC = () => {
               <Option value="Stackswap">Stackswap</Option>
             </Select>
             
-            <Text style={{ marginLeft: 16 }}>合约筛选：</Text>
+            <Text style={{ fontSize: '12px' }}>合约:</Text>
             <Input
-              placeholder="输入合约地址关键词"
+              placeholder="合约地址关键词"
               value={selectedContracts.join(',')}
               onChange={(e) => setSelectedContracts(e.target.value ? e.target.value.split(',').map(s => s.trim()) : [])}
-              style={{ minWidth: 200 }}
+              style={{ width: 150 }}
+              size="small"
             />
+          </Space>
+          
+          <Space wrap size="small">
+            <Text style={{ fontSize: '12px' }}>币种:</Text>
+            <Select
+              placeholder="选择币种"
+              value={filterCurrency}
+              onChange={setFilterCurrency}
+              style={{ width: 120 }}
+              size="small"
+              allowClear
+            >
+              <Option value="stx">STX</Option>
+              <Option value="aeusdc">aeUSDC</Option>
+              <Option value="abtc">aBTC</Option>
+              <Option value="susdt">sUSDT</Option>
+              <Option value="sbtc">sBTC</Option>
+              <Option value="usda">USDA</Option>
+              <Option value="alex">ALEX</Option>
+              <Option value="velar">VELAR</Option>
+            </Select>
+            
+            <Text style={{ fontSize: '12px' }}>金额范围:</Text>
+            <InputNumber
+              placeholder="最小值"
+              value={minAmount}
+              onChange={setMinAmount}
+              style={{ width: 100 }}
+              size="small"
+              min={0}
+            />
+            <Text style={{ fontSize: '12px' }}>-</Text>
+            <InputNumber
+              placeholder="最大值"
+              value={maxAmount}
+              onChange={setMaxAmount}
+              style={{ width: 100 }}
+              size="small"
+              min={0}
+            />
+            <Text type="secondary" style={{ fontSize: '11px' }}>
+              (例: stx&gt;3000 且 &lt;5000)
+            </Text>
           </Space>
         </Space>
       </Card>
 
       {/* 数据列表表格 */}
-      <Card>
+      <Card size="small">
         <Table
           columns={columns}
           dataSource={filteredData}
@@ -465,7 +530,7 @@ const StacksMonitor: React.FC = () => {
           pagination={{
             current: currentPage,
             pageSize: pageSize,
-            total: total,
+            total: filteredData.length,
             showSizeChanger: true,
             showQuickJumper: true,
             showTotal: (total) => `共 ${total} 条记录`,
