@@ -35,6 +35,12 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
         icon: <DashboardOutlined />,
         label: 'STX 监控',
       });
+      
+      items.push({
+        key: '/stacks-dev',
+        icon: <DashboardOutlined />,
+        label: 'STX 实时监控',
+      });
     }
     
     if (user?.role === 'super' || user?.role === 'stark') {

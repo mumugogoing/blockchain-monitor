@@ -6,6 +6,7 @@ import Login from './components/Login';
 import ProtectedRoute from './components/ProtectedRoute';
 import AppLayout from './components/AppLayout';
 import StacksMonitor from './views/stacks';
+import StxDevMonitor from './views/stacks/StackDev';
 import StarknetMonitor from './views/StarknetMonitor';
 import authService from './services/auth';
 
@@ -22,6 +23,17 @@ const App: React.FC = () => {
               <ProtectedRoute requiredRole={['super', 'stx']}>
                 <AppLayout>
                   <StacksMonitor />
+                </AppLayout>
+              </ProtectedRoute>
+            }
+          />
+          
+          <Route
+            path="/stacks-dev"
+            element={
+              <ProtectedRoute requiredRole={['super', 'stx']}>
+                <AppLayout>
+                  <StxDevMonitor />
                 </AppLayout>
               </ProtectedRoute>
             }
