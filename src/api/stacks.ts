@@ -70,7 +70,32 @@ export const getStacksTransactions = async (
     return data;
   } catch (error) {
     console.error('获取 Stacks 交易失败:', error);
-    throw error;
+    
+    // 如果有缓存数据，返回缓存数据作为fallback
+    if (transactionCache.size > 0) {
+      const cachedTransactions = Array.from(transactionCache.values())
+        .slice(offset, offset + limit);
+      console.log('使用缓存数据 (共', transactionCache.size, '条交易)');
+      return {
+        limit,
+        offset,
+        total: transactionCache.size,
+        results: cachedTransactions,
+      };
+    }
+    
+    // 提供更详细的错误信息
+    if (axios.isAxiosError(error)) {
+      if (error.code === 'ECONNABORTED') {
+        throw new Error('请求超时，请检查网络连接或稍后重试');
+      } else if (error.response) {
+        throw new Error(`API错误 (${error.response.status}): ${error.response.statusText}`);
+      } else if (error.request) {
+        throw new Error('网络错误: 无法连接到Stacks API服务器');
+      }
+    }
+    
+    throw new Error('获取Stacks交易数据失败，请稍后重试');
   }
 };
 

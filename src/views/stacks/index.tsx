@@ -92,7 +92,8 @@ const StacksMonitor: React.FC = () => {
       setLastUpdateTime(new Date().toLocaleTimeString('zh-CN'));
       message.success('数据已更新');
     } catch (error) {
-      message.error('获取数据失败');
+      const errorMessage = error instanceof Error ? error.message : '获取数据失败';
+      message.error(errorMessage);
       console.error(error);
     } finally {
       setLoading(false);
@@ -300,7 +301,7 @@ const StacksMonitor: React.FC = () => {
               />
               <Space.Compact style={{ width: '100%' }}>
                 <InputNumber
-                  min={5}
+                  min={1}
                   max={3600}
                   value={refreshInterval}
                   onChange={(value) => setRefreshInterval(value || 30)}
