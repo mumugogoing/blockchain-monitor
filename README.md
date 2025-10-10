@@ -2,6 +2,13 @@
 
 一个完整的区块链交易监控系统，支持 Stacks 和 Starknet 网络的实时交易监控。
 
+## 🚀 部署文档快速导航
+
+- **[阿里云快速部署](./QUICKSTART_ALICLOUD.md)** - 一键部署到阿里云服务器 47.108.148.251
+- **[阿里云完整指南](./ALICLOUD_DEPLOYMENT.md)** - 详细的阿里云部署文档和故障排除
+- **[部署示例](./DEPLOYMENT_EXAMPLES.md)** - 各种部署场景的使用示例
+- **[通用部署指南](./DEPLOYMENT.md)** - 其他平台的部署说明
+
 ## 功能特性
 
 - ✅ **STX (Stacks) 监控**: 实时监控 Stacks 网络交易，专注于 DEX 交易和合约调用
