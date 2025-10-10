@@ -108,7 +108,25 @@ blockchain-monitor/
 
 ## 部署到服务器
 
-### 使用 Docker
+### 阿里云服务器一键部署
+
+如果您要部署到阿里云服务器，请使用自动部署脚本：
+
+```bash
+# 使用密码认证
+./deploy-to-alicloud.sh
+
+# 或使用SSH密钥
+export SSH_KEY=~/.ssh/id_rsa
+./deploy-to-alicloud.sh
+
+# 自定义端口
+PORT=8080 ./deploy-to-alicloud.sh
+```
+
+详细说明请参考 [阿里云部署指南](./ALICLOUD_DEPLOYMENT.md)
+
+### 使用 Docker（通用方式）
 
 1. **在服务器上安装 Docker 和 Docker Compose**
 
