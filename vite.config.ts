@@ -14,6 +14,9 @@ export default defineConfig({
     port: 3000,
     host: true,
   },
+  define: {
+    'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV || 'development'),
+  },
   build: {
     outDir: 'dist',
     sourcemap: false,
