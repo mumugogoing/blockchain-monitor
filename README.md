@@ -2,6 +2,13 @@
 
 一个完整的区块链交易监控系统，支持 Stacks 和 Starknet 网络的实时交易监控。
 
+## 🚀 部署文档快速导航
+
+- **[阿里云快速部署](./QUICKSTART_ALICLOUD.md)** - 一键部署到阿里云服务器 47.108.148.251
+- **[阿里云完整指南](./ALICLOUD_DEPLOYMENT.md)** - 详细的阿里云部署文档和故障排除
+- **[部署示例](./DEPLOYMENT_EXAMPLES.md)** - 各种部署场景的使用示例
+- **[通用部署指南](./DEPLOYMENT.md)** - 其他平台的部署说明
+
 ## 功能特性
 
 - ✅ **STX (Stacks) 监控**: 实时监控 Stacks 网络交易，专注于 DEX 交易和合约调用
@@ -148,7 +155,25 @@ blockchain-monitor/
 
 ## 部署到服务器
 
-### 使用 Docker
+### 阿里云服务器一键部署
+
+如果您要部署到阿里云服务器，请使用自动部署脚本：
+
+```bash
+# 使用密码认证
+./deploy-to-alicloud.sh
+
+# 或使用SSH密钥
+export SSH_KEY=~/.ssh/id_rsa
+./deploy-to-alicloud.sh
+
+# 自定义端口
+PORT=8080 ./deploy-to-alicloud.sh
+```
+
+详细说明请参考 [阿里云部署指南](./ALICLOUD_DEPLOYMENT.md)
+
+### 使用 Docker（通用方式）
 
 1. **在服务器上安装 Docker 和 Docker Compose**
 
