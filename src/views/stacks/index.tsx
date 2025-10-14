@@ -66,6 +66,12 @@ const StacksMonitor: React.FC = () => {
   const [maxAmount, setMaxAmount] = useState<number | null>(null); // 最大交易金额
   const [filterCurrency, setFilterCurrency] = useState<string>(''); // 筛选币种
 
+  // 手动清除数据函数
+  const handleClearData = () => {
+    setData([]);
+    message.success('数据已清除');
+  };
+
   // 获取监控数据
   const fetchData = async () => {
     setLoading(true);
@@ -146,6 +152,48 @@ const StacksMonitor: React.FC = () => {
       width: 180,
     },
     {
+      title: '交易信息',
+      dataIndex: 'swapInfo',
+      key: 'swapInfo',
+      width: 320,
+      render: (swapInfo: string) => {
+        if (!swapInfo) return <Text type="secondary">-</Text>;
+        
+        // Parse and highlight tokens in swap info
+        // Format: "amount1 token1 ==> amount2 token2"
+        const parts = swapInfo.split('==>');
+        if (parts.length === 2) {
+          const fromPart = parts[0].trim();
+          const toPart = parts[1].trim();
+          
+          // Extract amount and token from each part
+          const fromMatch = fromPart.match(/^([\d.]+)\s+(\w+)$/);
+          const toMatch = toPart.match(/^([\d.]+)\s+(\w+)$/);
+          
+          if (fromMatch && toMatch) {
+            return (
+              <Text strong style={{ color: '#1890ff' }}>
+                {fromMatch[1]} <Text strong style={{ color: '#fa8c16', fontWeight: 'bold' }}>{fromMatch[2].toUpperCase()}</Text>
+                {' ==> '}
+                {toMatch[1]} <Text strong style={{ color: '#fa8c16', fontWeight: 'bold' }}>{toMatch[2].toUpperCase()}</Text>
+              </Text>
+            );
+          }
+        }
+        
+        return <Text strong style={{ color: '#1890ff' }}>{swapInfo}</Text>;
+      },
+    },
+    {
+      title: '平台',
+      dataIndex: 'platform',
+      key: 'platform',
+      width: 120,
+      render: (platform: string) => (
+        <Tag color="purple">{platform}</Tag>
+      ),
+    },
+    {
       title: '类型',
       dataIndex: 'type',
       key: 'type',
@@ -161,24 +209,6 @@ const StacksMonitor: React.FC = () => {
       width: 100,
       render: (status: string) => (
         <Tag color={status === '成功' ? 'green' : status === '待处理' ? 'orange' : 'red'}>{status}</Tag>
-      ),
-    },
-    {
-      title: '平台',
-      dataIndex: 'platform',
-      key: 'platform',
-      width: 120,
-      render: (platform: string) => (
-        <Tag color="purple">{platform}</Tag>
-      ),
-    },
-    {
-      title: '交易信息',
-      dataIndex: 'swapInfo',
-      key: 'swapInfo',
-      width: 250,
-      render: (swapInfo: string) => (
-        swapInfo ? <Text strong style={{ color: '#1890ff' }}>{swapInfo}</Text> : <Text type="secondary">-</Text>
       ),
     },
     {
@@ -392,6 +422,13 @@ const StacksMonitor: React.FC = () => {
             >
               刷新
             </Button>
+            <Button
+              onClick={handleClearData}
+              size="small"
+              danger
+            >
+              清除数据
+            </Button>
             <Input
               placeholder="搜索交易ID、地址或交易信息"
               prefix={<SearchOutlined />}
@@ -527,6 +564,10 @@ const StacksMonitor: React.FC = () => {
           dataSource={filteredData}
           rowKey="id"
           loading={loading}
+          rowClassName={(_record, index) => {
+            // Highlight the first row (latest transaction)
+            return index === 0 ? 'latest-transaction-row' : '';
+          }}
           pagination={{
             current: currentPage,
             pageSize: pageSize,
