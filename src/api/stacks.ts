@@ -229,9 +229,11 @@ export const parseContractPlatform = (contractId: string): string => {
     // XYK
     'SM1793C4R5PZ4NS4VQ4WMP7SKKYVH8JZEWSZ9HCCR.xyk-core-v-1-1': 'XYK',
     'SM1793C4R5PZ4NS4VQ4WMP7SKKYVH8JZEWSZ9HCCR.xyk-core-v-1-2': 'XYK',
+    'SM1793C4R5PZ4NS4VQ4WMP7SKKYVH8JZEWSZ9HCCR.xyk-swap-helper-v-1-3': 'XYK',
     'SM1793C4R5PZ4NS4VQ4WMP7SKKYVH8JZEWSZ9HCCR.xyk-pool-sbtc-stx-v-1-1': 'XYK',
     'SM1793C4R5PZ4NS4VQ4WMP7SKKYVH8JZEWSZ9HCCR.xyk-pool-stx-aeusdc-v-1-2': 'XYK',
     'SPQC38PW542EQJ5M11CR25P7BS1CA6QT4TBXGB3M.stableswap-usda-aeusdc-v-1-4': 'XYK',
+    'SPQC38PW542EQJ5M11CR25P7BS1CA6QT4TBXGB3M.stableswap-stx-ststx-v-1-2': 'STX-STSTX',
     // Zest Protocol
     'SP2VCQJGH7PHP2DJK7Z0V48AGBHQAW3R3ZW1QF4N.zest': 'Zest Protocol',
     'SP2VCQJGH7PHP2DJK7Z0V48AGBHQAW3R3ZW1QF4N.pool-v1-0': 'Zest Protocol',
@@ -415,6 +417,32 @@ export const parseSwapInfo = (tx: StacksTransaction): string => {
   }
   
   try {
+    // XYK swap helper v-1-3 - special handling with consistent parameter structure
+    if (contractId.includes('xyk-swap-helper-v-1-3')) {
+      try {
+        // xyk-swap-helper-v-1-3 has parameters: token-in, token-out, amount-in, min-amount-out
+        const tokenIn = (args[0] as any)?.repr || '';
+        const tokenOut = (args[1] as any)?.repr || '';
+        const amountIn = (args[2] as any)?.repr || '';
+        const minAmountOut = (args[3] as any)?.repr || '';
+        
+        // Extract token symbols from contract addresses
+        const tokenInSymbol = parseTokenSymbol(tokenIn);
+        const tokenOutSymbol = parseTokenSymbol(tokenOut);
+        
+        // Parse amounts (remove 'u' prefix for uint values)
+        const amountInValue = amountIn.replace(/^u/, '');
+        const minAmountOutValue = minAmountOut.replace(/^u/, '');
+        
+        const formattedAmountIn = formatAmount(amountInValue);
+        const formattedAmountOut = formatAmount(minAmountOutValue);
+        
+        return `${formattedAmountIn} ${tokenInSymbol.toLowerCase()}==>${formattedAmountOut} ${tokenOutSymbol.toLowerCase()}`;
+      } catch (e) {
+        console.error('Failed to parse xyk-swap-helper-v-1-3:', e);
+      }
+    }
+    
     // 尝试解析参数
     let fromToken = '';
     let toToken = '';

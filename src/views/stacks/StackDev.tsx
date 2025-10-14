@@ -72,7 +72,12 @@ const StxDevMonitor: React.FC = () => {
   const [lastUpdateTime, setLastUpdateTime] = useState<string>('');
   const [searchText, setSearchText] = useState('');
   const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>([]);
-  const [ws, setWs] = useState<WebSocket | null>(null);
+
+  // 手动清除数据函数
+  const handleClearData = () => {
+    setData([]);
+    message.success('数据已清除');
+  };
 
   // 解析交易类型为中文
   const parseTransactionType = (type: string): string => {
@@ -122,6 +127,7 @@ const StxDevMonitor: React.FC = () => {
     const platformMap: Record<string, string> = {
       'SM1793C4R5PZ4NS4VQ4WMP7SKKYVH8JZEWSZ9HCCR.xyk-core-v-1-1': 'XYK',
       'SM1793C4R5PZ4NS4VQ4WMP7SKKYVH8JZEWSZ9HCCR.xyk-core-v-1-2': 'XYK',
+      'SM1793C4R5PZ4NS4VQ4WMP7SKKYVH8JZEWSZ9HCCR.xyk-swap-helper-v-1-3': 'XYK',
       'SPQC38PW542EQJ5M11CR25P7BS1CA6QT4TBXGB3M.stableswap-stx-ststx-v-1-2': 'STX-STSTX',
       'SP102V8P0F7JX67ARQ77WEA3D3CFB5XW39REDT0AM.amm-pool-v2-01': 'ALEX',
     };
@@ -134,6 +140,32 @@ const StxDevMonitor: React.FC = () => {
     if (!tx.contract_call) return '';
 
     const { contract_id, function_name, function_args } = tx.contract_call;
+
+    // XYK swap helper v-1-3
+    if (contract_id.includes('xyk-swap-helper-v-1-3')) {
+      try {
+        // xyk-swap-helper-v-1-3 has parameters: token-in, token-out, amount-in, min-amount-out
+        const tokenIn = function_args[0]?.repr || '';
+        const tokenOut = function_args[1]?.repr || '';
+        const amountIn = function_args[2]?.repr || '';
+        const minAmountOut = function_args[3]?.repr || '';
+        
+        // Extract token symbols - they're in format like '.token-stx-v-1-2' or similar
+        const tokenInName = tokenIn.split('-').pop() || tokenIn.split('.').pop() || '';
+        const tokenOutName = tokenOut.split('-').pop() || tokenOut.split('.').pop() || '';
+        
+        // Parse amounts (remove 'u' prefix)
+        const amountInValue = amountIn.replace(/^u/, '');
+        const minAmountOutValue = minAmountOut.replace(/^u/, '');
+        
+        const amountInFormatted = (parseInt(amountInValue) / 1000000).toFixed(4);
+        const minAmountOutFormatted = (parseInt(minAmountOutValue) / 1000000).toFixed(4);
+        
+        return `${amountInFormatted} ${tokenInName} ==> ${minAmountOutFormatted} ${tokenOutName}`;
+      } catch (e) {
+        return '解析失败';
+      }
+    }
 
     // XYK swap
     if (contract_id.includes('xyk-core')) {
@@ -209,7 +241,6 @@ const StxDevMonitor: React.FC = () => {
       // 获取当前页面的协议，构建WebSocket地址
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
       const host = window.location.hostname;
-      const port = window.location.port ? window.location.port : (window.location.protocol === 'https:' ? '443' : '80');
       
       // 构建WebSocket地址
       // 在生产环境中，后端通常在同一个域名但不同的端口上
@@ -266,7 +297,7 @@ const StxDevMonitor: React.FC = () => {
       websocket.onerror = (error) => {
         console.error('WebSocket error:', error);
         if (!isManuallyClosed) {
-          message.error('WebSocket连接错误: ' + (error as Error).message);
+          message.error('WebSocket连接错误');
         }
       };
 
@@ -285,8 +316,6 @@ const StxDevMonitor: React.FC = () => {
           }, 3000);
         }
       };
-
-      setWs(websocket);
     };
 
     connect();
@@ -331,6 +360,48 @@ const StxDevMonitor: React.FC = () => {
       width: 180,
     },
     {
+      title: '交易信息',
+      dataIndex: 'swapInfo',
+      key: 'swapInfo',
+      width: 320,
+      render: (swapInfo: string) => {
+        if (!swapInfo) return <Text type="secondary">-</Text>;
+        
+        // Parse and highlight tokens in swap info
+        // Format: "amount1 token1 ==> amount2 token2"
+        const parts = swapInfo.split('==>');
+        if (parts.length === 2) {
+          const fromPart = parts[0].trim();
+          const toPart = parts[1].trim();
+          
+          // Extract amount and token from each part
+          const fromMatch = fromPart.match(/^([\d.]+)\s+(\w+)$/);
+          const toMatch = toPart.match(/^([\d.]+)\s+(\w+)$/);
+          
+          if (fromMatch && toMatch) {
+            return (
+              <Text strong style={{ color: '#1890ff' }}>
+                {fromMatch[1]} <Text strong style={{ color: '#fa8c16', fontWeight: 'bold' }}>{fromMatch[2].toUpperCase()}</Text>
+                {' ==> '}
+                {toMatch[1]} <Text strong style={{ color: '#fa8c16', fontWeight: 'bold' }}>{toMatch[2].toUpperCase()}</Text>
+              </Text>
+            );
+          }
+        }
+        
+        return <Text strong style={{ color: '#1890ff' }}>{swapInfo}</Text>;
+      },
+    },
+    {
+      title: '平台',
+      dataIndex: 'platform',
+      key: 'platform',
+      width: 120,
+      render: (platform: string) => (
+        <Tag color="purple">{platform}</Tag>
+      ),
+    },
+    {
       title: '类型',
       dataIndex: 'type',
       key: 'type',
@@ -346,24 +417,6 @@ const StxDevMonitor: React.FC = () => {
       width: 100,
       render: (status: string) => (
         <Tag color={status === '成功' ? 'green' : status === '待处理' ? 'orange' : 'red'}>{status}</Tag>
-      ),
-    },
-    {
-      title: '平台',
-      dataIndex: 'platform',
-      key: 'platform',
-      width: 120,
-      render: (platform: string) => (
-        <Tag color="purple">{platform}</Tag>
-      ),
-    },
-    {
-      title: '交易信息',
-      dataIndex: 'swapInfo',
-      key: 'swapInfo',
-      width: 250,
-      render: (swapInfo: string) => (
-        swapInfo ? <Text strong style={{ color: '#1890ff' }}>{swapInfo}</Text> : <Text type="secondary">-</Text>
       ),
     },
     {
@@ -498,6 +551,13 @@ const StxDevMonitor: React.FC = () => {
       <Card size="small" style={{ marginBottom: '10px' }}>
         <Space direction="vertical" style={{ width: '100%' }} size="small">
           <Space wrap size="small">
+            <Button
+              onClick={handleClearData}
+              size="small"
+              danger
+            >
+              清除数据
+            </Button>
             <Input
               placeholder="搜索交易ID、地址或交易信息"
               prefix={<SearchOutlined />}
@@ -543,6 +603,10 @@ const StxDevMonitor: React.FC = () => {
           dataSource={filteredData}
           rowKey="id"
           loading={loading}
+          rowClassName={(_record, index) => {
+            // Highlight the first row (latest transaction)
+            return index === 0 ? 'latest-transaction-row' : '';
+          }}
           pagination={{
             pageSize: 10,
             showSizeChanger: true,
