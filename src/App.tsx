@@ -5,7 +5,6 @@ import zhCN from 'antd/locale/zh_CN';
 import Login from './components/Login';
 import ProtectedRoute from './components/ProtectedRoute';
 import AppLayout from './components/AppLayout';
-import StacksMonitor from './views/stacks';
 import StxDevMonitor from './views/stacks/StackDev';
 import StarknetMonitor from './views/StarknetMonitor';
 import authService from './services/auth';
@@ -16,17 +15,6 @@ const App: React.FC = () => {
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={<Login />} />
-          
-          <Route
-            path="/stacks"
-            element={
-              <ProtectedRoute requiredRole={['super', 'stx']}>
-                <AppLayout>
-                  <StacksMonitor />
-                </AppLayout>
-              </ProtectedRoute>
-            }
-          />
           
           <Route
             path="/stacks-dev"
@@ -54,7 +42,7 @@ const App: React.FC = () => {
             path="/"
             element={
               authService.isAuthenticated() ? (
-                <Navigate to="/stacks" replace />
+                <Navigate to="/stacks-dev" replace />
               ) : (
                 <Navigate to="/login" replace />
               )

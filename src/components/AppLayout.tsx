@@ -31,12 +31,6 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
     
     if (user?.role === 'super' || user?.role === 'stx') {
       items.push({
-        key: '/stacks',
-        icon: <DashboardOutlined />,
-        label: 'STX 监控',
-      });
-      
-      items.push({
         key: '/stacks-dev',
         icon: <DashboardOutlined />,
         label: 'STX 实时监控',
