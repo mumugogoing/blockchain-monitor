@@ -512,27 +512,66 @@ const getBybitPairPrice = async (symbol: string): Promise<number | null> => {
 /**
  * Get arbitrage data for a specific trading pair
  * Fetches prices from all exchanges and calculates arbitrage opportunities
+ * @param symbol - The trading pair symbol (e.g., 'BTCUSDT')
+ * @param marketCapRank - The market cap ranking (optional)
+ * @param enabledExchanges - List of enabled exchanges to fetch prices from (optional, defaults to all)
  */
-export const getArbitrageForPair = async (symbol: string, marketCapRank?: number): Promise<TradingPairArbitrage> => {
-  const [binance, okx, gate, bitget, mexc, huobi, bybit] = await Promise.all([
-    getBinancePairPrice(symbol),
-    getOKXPairPrice(symbol),
-    getGatePairPrice(symbol),
-    getBitgetPairPrice(symbol),
-    getMEXCPairPrice(symbol),
-    getHuobiPairPrice(symbol),
-    getBybitPairPrice(symbol),
-  ]);
+export const getArbitrageForPair = async (symbol: string, marketCapRank?: number, enabledExchanges?: string[]): Promise<TradingPairArbitrage> => {
+  // If no enabled exchanges specified, use all exchanges
+  const exchanges = enabledExchanges || ['binance', 'okx', 'gate', 'bitget', 'mexc', 'huobi', 'bybit'];
+  
+  const pricePromises: Promise<number | null>[] = [];
+  const exchangeKeys: string[] = [];
+  
+  // Only fetch prices from enabled exchanges
+  if (exchanges.includes('binance')) {
+    pricePromises.push(getBinancePairPrice(symbol));
+    exchangeKeys.push('binance');
+  }
+  if (exchanges.includes('okx')) {
+    pricePromises.push(getOKXPairPrice(symbol));
+    exchangeKeys.push('okx');
+  }
+  if (exchanges.includes('gate')) {
+    pricePromises.push(getGatePairPrice(symbol));
+    exchangeKeys.push('gate');
+  }
+  if (exchanges.includes('bitget')) {
+    pricePromises.push(getBitgetPairPrice(symbol));
+    exchangeKeys.push('bitget');
+  }
+  if (exchanges.includes('mexc')) {
+    pricePromises.push(getMEXCPairPrice(symbol));
+    exchangeKeys.push('mexc');
+  }
+  if (exchanges.includes('huobi')) {
+    pricePromises.push(getHuobiPairPrice(symbol));
+    exchangeKeys.push('huobi');
+  }
+  if (exchanges.includes('bybit')) {
+    pricePromises.push(getBybitPairPrice(symbol));
+    exchangeKeys.push('bybit');
+  }
+  
+  const priceResults = await Promise.all(pricePromises);
 
-  const prices = {
-    binance: binance ?? undefined,
-    okx: okx ?? undefined,
-    gate: gate ?? undefined,
-    bitget: bitget ?? undefined,
-    mexc: mexc ?? undefined,
-    huobi: huobi ?? undefined,
-    bybit: bybit ?? undefined,
-  };
+  // Map price results back to their exchanges
+  const prices: {
+    binance?: number;
+    okx?: number;
+    gate?: number;
+    bitget?: number;
+    mexc?: number;
+    huobi?: number;
+    bybit?: number;
+  } = {};
+  
+  exchangeKeys.forEach((exchange, index) => {
+    const price = priceResults[index];
+    if (price !== null) {
+      prices[exchange as keyof typeof prices] = price;
+    }
+  });
 
   // Find highest and lowest prices among valid prices
   const validPrices = Object.entries(prices)
@@ -568,10 +607,12 @@ export const getArbitrageForPair = async (symbol: string, marketCapRank?: number
 
 /**
  * Get arbitrage data for multiple trading pairs
+ * @param symbolsWithRanks - Array of trading pair symbols with their market cap ranks
+ * @param enabledExchanges - List of enabled exchanges to fetch prices from (optional)
  */
-export const getArbitrageForPairs = async (symbolsWithRanks: Array<{symbol: string; marketCapRank?: number}>): Promise<TradingPairArbitrage[]> => {
+export const getArbitrageForPairs = async (symbolsWithRanks: Array<{symbol: string; marketCapRank?: number}>, enabledExchanges?: string[]): Promise<TradingPairArbitrage[]> => {
   const results = await Promise.all(
-    symbolsWithRanks.map(({ symbol, marketCapRank }) => getArbitrageForPair(symbol, marketCapRank))
+    symbolsWithRanks.map(({ symbol, marketCapRank }) => getArbitrageForPair(symbol, marketCapRank, enabledExchanges))
   );
   return results;
 };
