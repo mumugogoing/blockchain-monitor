@@ -72,7 +72,7 @@ The system queries 7 major exchanges in parallel:
 
 1. **Binance** - `https://api.binance.com/api/v3/ticker/price`
 2. **OKX** - `https://www.okx.com/api/v5/market/ticker`
-3. **Gate.io** - `https://api.gateio.ws/api/v4/spot/tickers`
+3. **Gate.io** - `https://api.gate.io/api/v4/spot/tickers` (Updated from api.gateio.ws)
 4. **Bitget** - `https://api.bitget.com/api/v2/spot/market/tickers`
 5. **MEXC** - `https://api.mexc.com/api/v3/ticker/price`
 6. **Huobi** - `https://api.huobi.pro/market/detail/merged`

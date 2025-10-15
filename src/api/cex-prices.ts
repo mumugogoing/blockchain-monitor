@@ -3,7 +3,7 @@ import axios from 'axios';
 // CEX API endpoints
 const BINANCE_API = 'https://api.binance.com/api/v3';
 const OKX_API = 'https://www.okx.com/api/v5';
-const GATE_API = 'https://api.gateio.ws/api/v4';
+const GATE_API = 'https://api.gate.io/api/v4';  // Changed from api.gateio.ws to api.gate.io for better global accessibility
 const BITGET_API = 'https://api.bitget.com/api/v2';
 const MEXC_API = 'https://api.mexc.com/api/v3';
 const HUOBI_API = 'https://api.huobi.pro';

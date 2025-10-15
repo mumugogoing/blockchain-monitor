@@ -150,7 +150,7 @@
 CoinGecko: https://api.coingecko.com/api/v3
 Binance: https://api.binance.com/api/v3
 OKX: https://www.okx.com/api/v5
-Gate.io: https://api.gateio.ws/api/v4
+Gate.io: https://api.gate.io/api/v4  (Updated from api.gateio.ws for better global accessibility)
 Bitget: https://api.bitget.com/api/v2
 MEXC: https://api.mexc.com/api/v3
 Huobi: https://api.huobi.pro
