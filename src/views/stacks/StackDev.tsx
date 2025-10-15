@@ -22,6 +22,7 @@ import {
   LinkOutlined,
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
+import PriceMonitor from '@/components/PriceMonitor';
 
 const { Title, Text } = Typography;
 const { Option } = Select;
@@ -493,6 +494,9 @@ const StxDevMonitor: React.FC = () => {
         <Title level={3} style={{ margin: 0 }}>Stacks 实时监控</Title>
         <Text type="secondary" style={{ fontSize: '12px' }}>实时监控 Stacks 网络上的交易活动</Text>
       </Card>
+
+      {/* 价格监控 - 独立自动刷新控制 */}
+      <PriceMonitor />
 
       {/* 统计信息 */}
       <Row gutter={8} style={{ marginBottom: '10px' }}>

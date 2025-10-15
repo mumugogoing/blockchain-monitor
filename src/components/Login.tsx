@@ -20,9 +20,9 @@ const Login: React.FC = () => {
       
       // 根据用户角色导航到相应页面
       if (user?.role === 'super') {
-        navigate('/stacks');
+        navigate('/stacks-dev');
       } else if (user?.role === 'stx') {
-        navigate('/stacks');
+        navigate('/stacks-dev');
       } else if (user?.role === 'stark') {
         navigate('/starknet');
       }
