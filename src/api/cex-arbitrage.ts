@@ -31,6 +31,7 @@ export interface TradingPairArbitrage {
   lowestExchange?: string;
   priceDiff?: number;
   priceDiffPercent?: number;
+  exchangeCount?: number; // Number of exchanges where this pair is available
 }
 
 /**
@@ -145,11 +146,20 @@ const getBybitPairs = async (): Promise<string[]> => {
 };
 
 /**
- * Get common trading pairs across all exchanges
+ * Get trading pairs from Binance as baseline and check availability on other exchanges
+ * This follows the requirement: "以币安的所有代币为基准，获取其他交易所所有代币交易对"
  */
 export const getCommonTradingPairs = async (): Promise<string[]> => {
-  const [binance, okx, gate, bitget, mexc, huobi, bybit] = await Promise.all([
-    getBinancePairs(),
+  // Get Binance pairs as the baseline
+  const binancePairs = await getBinancePairs();
+  
+  if (binancePairs.length === 0) {
+    console.error('Failed to fetch Binance pairs, using default pairs');
+    return getDefaultPriorityPairs();
+  }
+
+  // Fetch pairs from other exchanges in parallel
+  const [okx, gate, bitget, mexc, huobi, bybit] = await Promise.all([
     getOKXPairs(),
     getGatePairs(),
     getBitgetPairs(),
@@ -158,22 +168,48 @@ export const getCommonTradingPairs = async (): Promise<string[]> => {
     getBybitPairs(),
   ]);
 
-  // Find intersection of all exchanges
-  const allPairs = [binance, okx, gate, bitget, mexc, huobi, bybit];
-  const commonPairs = binance.filter(pair => 
-    allPairs.every(exchangePairs => exchangePairs.includes(pair))
-  );
+  // Count how many exchanges support each Binance pair
+  const pairAvailability = binancePairs.map(pair => {
+    const exchanges = [okx, gate, bitget, mexc, huobi, bybit];
+    const availableCount = exchanges.filter(exchangePairs => exchangePairs.includes(pair)).length;
+    return { pair, availableCount };
+  });
 
-  // Return top pairs by popularity - expanded list of popular cryptocurrencies
-  const priorityPairs = [
+  // Sort by availability (pairs available on more exchanges have higher priority)
+  pairAvailability.sort((a, b) => b.availableCount - a.availableCount);
+
+  // Get priority pairs based on popularity
+  const priorityPairs = getDefaultPriorityPairs();
+  
+  // Filter to include priority pairs that are available on at least 2 exchanges
+  const highPriorityPairs = pairAvailability
+    .filter(item => priorityPairs.includes(item.pair) && item.availableCount >= 2)
+    .map(item => item.pair);
+  
+  // If we have enough high priority pairs, return them
+  if (highPriorityPairs.length >= 30) {
+    return highPriorityPairs.slice(0, 50);
+  }
+  
+  // Otherwise, include other pairs available on at least 3 exchanges
+  const additionalPairs = pairAvailability
+    .filter(item => !priorityPairs.includes(item.pair) && item.availableCount >= 3)
+    .map(item => item.pair)
+    .slice(0, 50 - highPriorityPairs.length);
+  
+  return [...highPriorityPairs, ...additionalPairs];
+};
+
+/**
+ * Get default priority pairs - expanded list of popular cryptocurrencies
+ */
+const getDefaultPriorityPairs = (): string[] => {
+  return [
     'BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'XRPUSDT', 'ADAUSDT', 'SOLUSDT', 'DOGEUSDT', 'DOTUSDT', 'MATICUSDT', 'LTCUSDT',
     'TRXUSDT', 'AVAXUSDT', 'LINKUSDT', 'ATOMUSDT', 'UNIUSDT', 'ETCUSDT', 'XLMUSDT', 'NEARUSDT', 'APTUSDT', 'FILUSDT',
     'ALGOUSDT', 'VETUSDT', 'ICPUSDT', 'ARBUSDT', 'OPUSDT', 'INJUSDT', 'MKRUSDT', 'AAVEUSDT', 'GRTUSDT', 'SHIBUSDT',
     'PEPEUSDT', 'FLOKIUSDT', 'LDOUSDT', 'RNDRUSDT', 'FTMUSDT', 'SANDUSDT', 'MANAUSDT', 'AXSUSDT', 'THETAUSDT', 'IMXUSDT'
   ];
-  const filteredPairs = commonPairs.filter(pair => priorityPairs.includes(pair));
-  
-  return filteredPairs.length > 0 ? filteredPairs : commonPairs.slice(0, 50);
 };
 
 /**
@@ -300,6 +336,7 @@ const getBybitPairPrice = async (symbol: string): Promise<number | null> => {
 
 /**
  * Get arbitrage data for a specific trading pair
+ * Fetches prices from all exchanges and calculates arbitrage opportunities
  */
 export const getArbitrageForPair = async (symbol: string): Promise<TradingPairArbitrage> => {
   const [binance, okx, gate, bitget, mexc, huobi, bybit] = await Promise.all([
@@ -322,13 +359,16 @@ export const getArbitrageForPair = async (symbol: string): Promise<TradingPairAr
     bybit: bybit ?? undefined,
   };
 
-  // Find highest and lowest prices
+  // Find highest and lowest prices among valid prices
   const validPrices = Object.entries(prices)
     .filter(([_, price]) => price !== undefined)
     .map(([exchange, price]) => ({ exchange, price: price as number }));
 
-  if (validPrices.length === 0) {
-    return { symbol, prices };
+  const exchangeCount = validPrices.length;
+
+  // Need at least 2 exchanges with valid prices to calculate arbitrage
+  if (exchangeCount < 2) {
+    return { symbol, prices, exchangeCount };
   }
 
   const highest = validPrices.reduce((max, curr) => curr.price > max.price ? curr : max);
@@ -346,6 +386,7 @@ export const getArbitrageForPair = async (symbol: string): Promise<TradingPairAr
     lowestExchange: lowest.exchange,
     priceDiff,
     priceDiffPercent,
+    exchangeCount,
   };
 };
 
