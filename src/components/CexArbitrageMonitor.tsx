@@ -137,6 +137,7 @@ const CexArbitrageMonitor: React.FC = () => {
       key: 'symbol',
       width: 140,
       fixed: 'left',
+      sorter: (a, b) => a.symbol.localeCompare(b.symbol),
       render: (symbol: string, record) => (
         <Space direction="vertical" size={0}>
           <Text strong>{symbol}</Text>
@@ -158,6 +159,7 @@ const CexArbitrageMonitor: React.FC = () => {
       dataIndex: ['prices', 'binance'],
       key: 'binance',
       width: 110,
+      sorter: (a, b) => (a.prices.binance || 0) - (b.prices.binance || 0),
       render: (price?: number) => price ? price.toFixed(6) : '-',
     },
     {
@@ -165,6 +167,7 @@ const CexArbitrageMonitor: React.FC = () => {
       dataIndex: ['prices', 'okx'],
       key: 'okx',
       width: 110,
+      sorter: (a, b) => (a.prices.okx || 0) - (b.prices.okx || 0),
       render: (price?: number) => price ? price.toFixed(6) : '-',
     },
     {
@@ -172,6 +175,7 @@ const CexArbitrageMonitor: React.FC = () => {
       dataIndex: ['prices', 'gate'],
       key: 'gate',
       width: 110,
+      sorter: (a, b) => (a.prices.gate || 0) - (b.prices.gate || 0),
       render: (price?: number) => price ? price.toFixed(6) : '-',
     },
     {
@@ -179,6 +183,7 @@ const CexArbitrageMonitor: React.FC = () => {
       dataIndex: ['prices', 'bybit'],
       key: 'bybit',
       width: 110,
+      sorter: (a, b) => (a.prices.bybit || 0) - (b.prices.bybit || 0),
       render: (price?: number) => price ? price.toFixed(6) : '-',
     },
     {
@@ -186,6 +191,7 @@ const CexArbitrageMonitor: React.FC = () => {
       dataIndex: ['prices', 'bitget'],
       key: 'bitget',
       width: 110,
+      sorter: (a, b) => (a.prices.bitget || 0) - (b.prices.bitget || 0),
       render: (price?: number) => price ? price.toFixed(6) : '-',
     },
     {
@@ -193,6 +199,7 @@ const CexArbitrageMonitor: React.FC = () => {
       dataIndex: ['prices', 'huobi'],
       key: 'huobi',
       width: 110,
+      sorter: (a, b) => (a.prices.huobi || 0) - (b.prices.huobi || 0),
       render: (price?: number) => price ? price.toFixed(6) : '-',
     },
     {
@@ -200,13 +207,59 @@ const CexArbitrageMonitor: React.FC = () => {
       dataIndex: ['prices', 'mexc'],
       key: 'mexc',
       width: 110,
+      sorter: (a, b) => (a.prices.mexc || 0) - (b.prices.mexc || 0),
       render: (price?: number) => price ? price.toFixed(6) : '-',
     },
     {
-      title: '价差',
-      key: 'priceDiff',
-      width: 180,
+      title: '价差 %',
+      key: 'priceDiffPercent',
+      dataIndex: 'priceDiffPercent',
+      width: 100,
+      sorter: (a, b) => (a.priceDiffPercent || 0) - (b.priceDiffPercent || 0),
+      defaultSortOrder: 'descend',
       render: (_, record) => renderPriceDiff(record),
+    },
+    {
+      title: '1000 USDT 利润',
+      key: 'profit1000',
+      width: 110,
+      sorter: (a, b) => {
+        const profitA = a.priceDiffPercent ? (1000 * (a.priceDiffPercent / 100)) : 0;
+        const profitB = b.priceDiffPercent ? (1000 * (b.priceDiffPercent / 100)) : 0;
+        return profitA - profitB;
+      },
+      render: (_, record) => {
+        if (!record.priceDiffPercent || record.priceDiffPercent < 0.1) {
+          return <Text type="secondary">-</Text>;
+        }
+        const profit = 1000 * (record.priceDiffPercent / 100);
+        return (
+          <Text type={profit > 5 ? 'success' : 'secondary'} strong={profit > 5}>
+            ${profit.toFixed(2)}
+          </Text>
+        );
+      },
+    },
+    {
+      title: '10000 USDT 利润',
+      key: 'profit10000',
+      width: 120,
+      sorter: (a, b) => {
+        const profitA = a.priceDiffPercent ? (10000 * (a.priceDiffPercent / 100)) : 0;
+        const profitB = b.priceDiffPercent ? (10000 * (b.priceDiffPercent / 100)) : 0;
+        return profitA - profitB;
+      },
+      render: (_, record) => {
+        if (!record.priceDiffPercent || record.priceDiffPercent < 0.1) {
+          return <Text type="secondary">-</Text>;
+        }
+        const profit = 10000 * (record.priceDiffPercent / 100);
+        return (
+          <Text type={profit > 50 ? 'success' : 'secondary'} strong={profit > 50}>
+            ${profit.toFixed(2)}
+          </Text>
+        );
+      },
     },
     {
       title: '套利机会',
@@ -268,8 +321,14 @@ const CexArbitrageMonitor: React.FC = () => {
         dataSource={arbitrageData}
         rowKey="symbol"
         loading={loading}
-        pagination={{ pageSize: 10 }}
-        scroll={{ x: 1400 }}
+        pagination={{
+          pageSize: 20,
+          showSizeChanger: true,
+          showQuickJumper: true,
+          showTotal: (total) => `共 ${total} 个交易对`,
+          pageSizeOptions: ['10', '20', '50', '100', '200'],
+        }}
+        scroll={{ x: 1800 }}
         size="small"
       />
       <div style={{ marginTop: '16px' }}>
@@ -280,8 +339,11 @@ const CexArbitrageMonitor: React.FC = () => {
           <Text type="secondary" style={{ fontSize: '12px' }}>
             套利机会: 当价差 &gt; 0.5% 时显示，可在低价交易所买入，高价交易所卖出
           </Text>
+          <Text type="secondary" style={{ fontSize: '12px' }}>
+            利润计算: 显示投入1000 USDT和10000 USDT时的理论利润（未扣除手续费和滑点）
+          </Text>
           <Text type="warning" style={{ fontSize: '12px' }}>
-            注意: 市值排名数据来自 CoinGecko，优先显示市值靠前的代币，每次刷新交易对列表会重新获取最新市值排名
+            注意: 市值排名数据来自 CoinGecko，优先显示市值靠前的代币，每次刷新交易对列表会重新获取最新市值排名。表格支持点击列标题进行排序。
           </Text>
         </Space>
       </div>
