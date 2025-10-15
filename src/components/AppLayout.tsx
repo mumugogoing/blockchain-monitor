@@ -35,6 +35,11 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
         icon: <DashboardOutlined />,
         label: 'STX 实时监控',
       });
+      items.push({
+        key: '/cex-arbitrage',
+        icon: <DashboardOutlined />,
+        label: 'CEX 套利监控',
+      });
     }
     
     if (user?.role === 'super' || user?.role === 'stark') {
