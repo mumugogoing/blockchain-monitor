@@ -137,7 +137,16 @@ const CexArbitrageMonitor: React.FC = () => {
       key: 'symbol',
       width: 120,
       fixed: 'left',
-      render: (symbol: string) => <Text strong>{symbol}</Text>,
+      render: (symbol: string, record) => (
+        <Space direction="vertical" size={0}>
+          <Text strong>{symbol}</Text>
+          {record.exchangeCount && (
+            <Text type="secondary" style={{ fontSize: '11px' }}>
+              {record.exchangeCount}/7 交易所
+            </Text>
+          )}
+        </Space>
+      ),
     },
     {
       title: '币安',
@@ -261,7 +270,7 @@ const CexArbitrageMonitor: React.FC = () => {
       <div style={{ marginTop: '16px' }}>
         <Space direction="vertical" size="small">
           <Text type="secondary" style={{ fontSize: '12px' }}>
-            说明: 监控 {commonPairs.length || defaultPairs.length} 个共同交易对在 7 个交易所（币安、OKX、Gate、Bybit、Bitget、火币、MEXC）的价格差异，支持 30-40+ 种主流加密货币
+            说明: 以币安 {commonPairs.length || defaultPairs.length} 个交易对为基准，检查在其他交易所（OKX、Gate、Bybit、Bitget、火币、MEXC）的价格差异，优先显示在多个交易所都可交易的币种
           </Text>
           <Text type="secondary" style={{ fontSize: '12px' }}>
             套利机会: 当价差 &gt; 0.5% 时显示，可在低价交易所买入，高价交易所卖出
