@@ -47,8 +47,10 @@ export const getBinancePrice = async (symbol: string): Promise<number | null> =>
  */
 export const getOKXPrice = async (symbol: string): Promise<number | null> => {
   try {
+    // OKX uses format like BTC-USDT (with hyphen)
+    const instId = symbol.replace('USDT', '-USDT');
     const response = await axios.get(`${OKX_API}/market/ticker`, {
-      params: { instId: symbol.toUpperCase() },
+      params: { instId: instId.toUpperCase() },
       timeout: 5000,
     });
     if (response.data.data && response.data.data.length > 0) {
@@ -66,8 +68,10 @@ export const getOKXPrice = async (symbol: string): Promise<number | null> => {
  */
 export const getGatePrice = async (symbol: string): Promise<number | null> => {
   try {
+    // Gate.io uses format like BTC_USDT (with underscore)
+    const currencyPair = symbol.replace('USDT', '_USDT');
     const response = await axios.get(`${GATE_API}/spot/tickers`, {
-      params: { currency_pair: symbol.toUpperCase() },
+      params: { currency_pair: currencyPair.toUpperCase() },
       timeout: 5000,
     });
     if (response.data && response.data.length > 0) {
