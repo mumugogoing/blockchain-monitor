@@ -52,8 +52,35 @@ const getBinancePairs = async (): Promise<string[]> => {
 };
 
 /**
+ * Get Binance 24hr ticker data and rank by volume
+ * Returns a map of symbol -> volume rank
+ */
+const getBinance24hrTicker = async (): Promise<Map<string, number>> => {
+  try {
+    const response = await axios.get(`${BINANCE_API}/ticker/24hr`, { timeout: 15000 });
+    
+    // Filter USDT pairs and sort by volume
+    const usdtPairs = response.data
+      .filter((ticker: any) => ticker.symbol.endsWith('USDT'))
+      .sort((a: any, b: any) => parseFloat(b.quoteVolume) - parseFloat(a.quoteVolume));
+    
+    // Create rank map
+    const volumeRankMap = new Map<string, number>();
+    usdtPairs.forEach((ticker: any, index: number) => {
+      volumeRankMap.set(ticker.symbol, index + 1);
+    });
+    
+    return volumeRankMap;
+  } catch (error) {
+    console.error('Failed to fetch Binance 24hr ticker:', error);
+    return new Map();
+  }
+};
+
+/**
  * Get top tokens by market cap from CoinGecko
  * Returns a map of symbol -> market cap rank
+ * Falls back to static list if API fails
  */
 const getTopTokensByMarketCap = async (limit: number = 1000): Promise<Map<string, number>> => {
   try {
@@ -74,6 +101,9 @@ const getTopTokensByMarketCap = async (limit: number = 1000): Promise<Map<string
             sparkline: false,
           },
           timeout: 15000,
+        }).catch(err => {
+          console.error(`Failed to fetch page ${page} from CoinGecko:`, err.message);
+          return null;
         })
       );
     }
@@ -81,32 +111,89 @@ const getTopTokensByMarketCap = async (limit: number = 1000): Promise<Map<string
     const responses = await Promise.all(pagePromises);
     
     // Process all responses
+    let successCount = 0;
     responses.forEach((response, pageIndex) => {
-      response.data.forEach((coin: any, index: number) => {
-        const rank = pageIndex * perPage + index + 1;
-        if (rank <= limit) {
-          // Store both the symbol and common variations
-          const symbol = coin.symbol.toUpperCase();
-          tokenRankMap.set(symbol, rank);
-          
-          // Some tokens use different symbols on exchanges
-          // Map common variations
-          if (symbol === 'BTC') {
-            tokenRankMap.set('BTC', rank);
-          } else if (symbol === 'ETH') {
-            tokenRankMap.set('ETH', rank);
-          } else if (symbol === 'BNB') {
-            tokenRankMap.set('BNB', rank);
+      if (response && response.data) {
+        successCount++;
+        response.data.forEach((coin: any, index: number) => {
+          const rank = pageIndex * perPage + index + 1;
+          if (rank <= limit) {
+            // Store both the symbol and common variations
+            const symbol = coin.symbol.toUpperCase();
+            tokenRankMap.set(symbol, rank);
+            
+            // Some tokens use different symbols on exchanges
+            // Map common variations
+            if (symbol === 'BTC') {
+              tokenRankMap.set('BTC', rank);
+            } else if (symbol === 'ETH') {
+              tokenRankMap.set('ETH', rank);
+            } else if (symbol === 'BNB') {
+              tokenRankMap.set('BNB', rank);
+            }
           }
-        }
-      });
+        });
+      }
     });
+    
+    if (successCount === 0) {
+      console.warn('CoinGecko API failed, using static ranking');
+      return getStaticMarketCapRanking();
+    }
     
     return tokenRankMap;
   } catch (error) {
     console.error('Failed to fetch top tokens from CoinGecko:', error);
-    return new Map();
+    return getStaticMarketCapRanking();
   }
+};
+
+/**
+ * Static market cap ranking based on well-known cryptocurrency rankings
+ * This serves as a fallback when CoinGecko API is unavailable
+ */
+const getStaticMarketCapRanking = (): Map<string, number> => {
+  const rankings = [
+    'BTC', 'ETH', 'USDT', 'BNB', 'SOL', 'USDC', 'XRP', 'STETH', 'ADA', 'AVAX',
+    'DOGE', 'TRX', 'LINK', 'DOT', 'MATIC', 'SHIB', 'TON', 'DAI', 'LTC', 'BCH',
+    'WBTC', 'UNI', 'ATOM', 'LEO', 'XLM', 'ICP', 'ETC', 'OKB', 'FIL', 'APT',
+    'NEAR', 'ARB', 'IMX', 'OP', 'MKR', 'VET', 'HBAR', 'INJ', 'RNDR', 'STX',
+    'GRT', 'LDO', 'ALGO', 'QNT', 'SAND', 'MANA', 'AAVE', 'CRO', 'FTM', 'RUNE',
+    'XMR', 'THETA', 'AXS', 'EGLD', 'XTZ', 'FLOW', 'EOS', 'KAVA', 'MINA', 'CHZ',
+    'APE', 'ZEC', 'NEO', 'KCS', 'GALA', 'CFX', 'MASK', 'COMP', 'DASH', 'ENJ',
+    'ONE', 'ZIL', 'WAVES', 'CELO', 'BAT', 'LRC', 'DYDX', 'ROSE', 'GMT', 'SKL',
+    'SXP', 'AUDIO', 'HNT', 'YFI', 'SUSHI', 'SNX', '1INCH', 'ANT', 'CRV', 'BAL',
+    'REN', 'OMG', 'ZRX', 'BNT', 'KNC', 'OCEAN', 'IOTX', 'RSR', 'ALPHA', 'CTSI',
+    // Extended top 200
+    'PEPE', 'FLOKI', 'WLD', 'FET', 'AGIX', 'RNDR', 'BLUR', 'SEI', 'TIA', 'SUI',
+    'ORDI', 'BONK', 'WIF', 'SATS', 'JUP', 'PYTH', 'DYM', 'STRK', 'MEME', 'W',
+    'ENA', 'ETHFI', 'PENDLE', 'JTO', 'METIS', 'ONDO', 'ALT', 'PORTAL', 'PIXEL', 'AEVO',
+    'XAI', 'MANTA', 'ACE', 'NFP', 'AI', 'XAI', 'RDNT', 'MAGIC', 'CYBER', 'HOOK',
+    'ARKM', 'GNS', 'JOE', 'ID', 'COMBO', 'MAV', 'PENDLE', 'ARB', 'SUI', 'CELO',
+    'LQTY', 'RPL', 'GMX', 'PERP', 'FXS', 'STG', 'SWEAT', 'APE', 'OP', 'GLMR',
+    'MOVR', 'STRAX', 'POLS', 'MDT', 'TLM', 'ACH', 'BADGER', 'FIS', 'SFP', 'LIT',
+    'VOXEL', 'HIGH', 'CVX', 'PEOPLE', 'OOKI', 'SPELL', 'UST', 'LUNA', 'LUNC', 'USTC',
+    'GAL', 'LDO', 'EPX', 'APT', 'BSW', 'OSMO', 'HFT', 'PHB', 'HOOK', 'MAGIC',
+    'HIFI', 'RPL', 'PROS', 'AGLD', 'NMR', 'GFT', 'POLYX', 'FOR', 'JASMY', 'AMP',
+    // Extended beyond 200 - adding more popular tokens
+    'LOOKS', 'VINU', 'T', 'SNT', 'REQ', 'TRIBE', 'ILV', 'RAD', 'RARE', 'LOKA',
+    'PYR', 'BICO', 'SCRT', 'QI', 'PUNDIX', 'NULS', 'NKN', 'WAN', 'ELF', 'GTC',
+    'C98', 'CLV', 'TRU', 'QUICK', 'PLA', 'FORTH', 'EZ', 'GHST', 'BOND', 'MLN',
+    'FARM', 'DEP', 'TVK', 'BADGER', 'FIS', 'OM', 'POND', 'DEGO', 'RARI', 'CVP',
+    'STRP', 'PNT', 'MIR', 'ACA', 'ANC', 'AUTO', 'BTCST', 'TKO', 'HARD', 'BETA',
+    'VITE', 'DATA', 'XVS', 'VIDT', 'CHESS', 'ADX', 'AUCTION', 'IQ', 'PHA', 'FIRO',
+    'ORN', 'UTK', 'ASR', 'ATM', 'OG', 'TCT', 'WRX', 'BEL', 'WING', 'CREAM',
+    'SUN', 'BURGER', 'SPARTA', 'REEF', 'AKRO', 'UFT', 'OXT', 'COS', 'CTXC', 'BCH',
+    'FTT', 'KEY', 'HIVE', 'IRIS', 'DOCK', 'PERL', 'WTC', 'TROY', 'FUN', 'BEAM',
+    'VITE', 'WAXP', 'WIN', 'STPT', 'STMX', 'KAVA', 'ARDR', 'BIFI', 'CTK', 'ERN',
+  ];
+  
+  const rankMap = new Map<string, number>();
+  rankings.forEach((symbol, index) => {
+    rankMap.set(symbol, index + 1);
+  });
+  
+  return rankMap;
 };
 
 /**
@@ -211,7 +298,7 @@ const getBybitPairs = async (): Promise<string[]> => {
  * Now enhanced to prioritize top 1000 tokens by market cap
  */
 export const getCommonTradingPairs = async (): Promise<Array<{symbol: string; marketCapRank?: number}>> => {
-  // Get top 1000 tokens by market cap from CoinGecko
+  // Get top 1000 tokens by market cap (from CoinGecko or static list)
   const marketCapMap = await getTopTokensByMarketCap(1000);
   
   // Get Binance pairs as the baseline
@@ -233,6 +320,9 @@ export const getCommonTradingPairs = async (): Promise<Array<{symbol: string; ma
     getBybitPairs(),
   ]);
 
+  // Get Binance 24hr ticker data for volume-based ranking as fallback
+  const binanceTickerData = await getBinance24hrTicker();
+
   // Count how many exchanges support each Binance pair and get market cap rank
   const pairAvailability = binancePairs.map(pair => {
     const exchanges = [okx, gate, bitget, mexc, huobi, bybit];
@@ -240,7 +330,14 @@ export const getCommonTradingPairs = async (): Promise<Array<{symbol: string; ma
     
     // Extract base symbol from pair (e.g., "BTCUSDT" -> "BTC")
     const baseSymbol = pair.replace('USDT', '');
-    const marketCapRank = marketCapMap.get(baseSymbol);
+    let marketCapRank = marketCapMap.get(baseSymbol);
+    
+    // If no market cap rank, use volume rank from Binance as fallback
+    if (!marketCapRank && binanceTickerData.has(pair)) {
+      const volumeRank = binanceTickerData.get(pair);
+      // Add 1000 to volume rank to distinguish from market cap rank
+      marketCapRank = 1000 + (volumeRank || 999);
+    }
     
     return { pair, availableCount, marketCapRank };
   });
