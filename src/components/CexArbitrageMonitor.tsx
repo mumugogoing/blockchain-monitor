@@ -16,8 +16,12 @@ const CexArbitrageMonitor: React.FC = () => {
   const [commonPairs, setCommonPairs] = useState<string[]>([]);
   const [loadingPairs, setLoadingPairs] = useState(false);
 
-  // Default trading pairs to monitor
-  const defaultPairs = ['BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'XRPUSDT', 'ADAUSDT', 'SOLUSDT', 'DOGEUSDT', 'DOTUSDT'];
+  // Default trading pairs to monitor - expanded list
+  const defaultPairs = [
+    'BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'XRPUSDT', 'ADAUSDT', 'SOLUSDT', 'DOGEUSDT', 'DOTUSDT', 'MATICUSDT', 'LTCUSDT',
+    'TRXUSDT', 'AVAXUSDT', 'LINKUSDT', 'ATOMUSDT', 'UNIUSDT', 'ETCUSDT', 'XLMUSDT', 'NEARUSDT', 'APTUSDT', 'FILUSDT',
+    'ALGOUSDT', 'VETUSDT', 'ICPUSDT', 'ARBUSDT', 'OPUSDT', 'INJUSDT', 'MKRUSDT', 'AAVEUSDT', 'GRTUSDT', 'SHIBUSDT'
+  ];
 
   const fetchCommonPairs = async () => {
     setLoadingPairs(true);
@@ -257,7 +261,7 @@ const CexArbitrageMonitor: React.FC = () => {
       <div style={{ marginTop: '16px' }}>
         <Space direction="vertical" size="small">
           <Text type="secondary" style={{ fontSize: '12px' }}>
-            说明: 监控 {commonPairs.length || defaultPairs.length} 个共同交易对在 7 个交易所（币安、OKX、Gate、Bybit、Bitget、火币、MEXC）的价格差异
+            说明: 监控 {commonPairs.length || defaultPairs.length} 个共同交易对在 7 个交易所（币安、OKX、Gate、Bybit、Bitget、火币、MEXC）的价格差异，支持 30-40+ 种主流加密货币
           </Text>
           <Text type="secondary" style={{ fontSize: '12px' }}>
             套利机会: 当价差 &gt; 0.5% 时显示，可在低价交易所买入，高价交易所卖出

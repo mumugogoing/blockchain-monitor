@@ -164,11 +164,16 @@ export const getCommonTradingPairs = async (): Promise<string[]> => {
     allPairs.every(exchangePairs => exchangePairs.includes(pair))
   );
 
-  // Return top pairs by popularity (BTC, ETH, BNB, etc.)
-  const priorityPairs = ['BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'XRPUSDT', 'ADAUSDT', 'SOLUSDT', 'DOGEUSDT', 'DOTUSDT', 'MATICUSDT', 'LTCUSDT'];
+  // Return top pairs by popularity - expanded list of popular cryptocurrencies
+  const priorityPairs = [
+    'BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'XRPUSDT', 'ADAUSDT', 'SOLUSDT', 'DOGEUSDT', 'DOTUSDT', 'MATICUSDT', 'LTCUSDT',
+    'TRXUSDT', 'AVAXUSDT', 'LINKUSDT', 'ATOMUSDT', 'UNIUSDT', 'ETCUSDT', 'XLMUSDT', 'NEARUSDT', 'APTUSDT', 'FILUSDT',
+    'ALGOUSDT', 'VETUSDT', 'ICPUSDT', 'ARBUSDT', 'OPUSDT', 'INJUSDT', 'MKRUSDT', 'AAVEUSDT', 'GRTUSDT', 'SHIBUSDT',
+    'PEPEUSDT', 'FLOKIUSDT', 'LDOUSDT', 'RNDRUSDT', 'FTMUSDT', 'SANDUSDT', 'MANAUSDT', 'AXSUSDT', 'THETAUSDT', 'IMXUSDT'
+  ];
   const filteredPairs = commonPairs.filter(pair => priorityPairs.includes(pair));
   
-  return filteredPairs.length > 0 ? filteredPairs : commonPairs.slice(0, 20);
+  return filteredPairs.length > 0 ? filteredPairs : commonPairs.slice(0, 50);
 };
 
 /**
