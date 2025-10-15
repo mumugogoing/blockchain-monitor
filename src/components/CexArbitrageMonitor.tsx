@@ -96,7 +96,8 @@ const CexArbitrageMonitor: React.FC = () => {
     setLoading(true);
     try {
       const pairs = commonPairs.length > 0 ? commonPairs : defaultPairs;
-      const data = await getArbitrageForPairs(pairs);
+      const enabledExchanges = getEnabledExchanges();
+      const data = await getArbitrageForPairs(pairs, enabledExchanges);
       setArbitrageData(data);
       setLastUpdateTime(new Date().toLocaleTimeString('zh-CN'));
     } catch (error) {
@@ -116,6 +117,13 @@ const CexArbitrageMonitor: React.FC = () => {
       fetchArbitrageData();
     }
   }, [commonPairs]);
+
+  // Re-fetch arbitrage data when enabled exchanges change
+  useEffect(() => {
+    if (commonPairs.length > 0) {
+      fetchArbitrageData();
+    }
+  }, [exchanges]);
 
   useEffect(() => {
     let interval: number | undefined;
