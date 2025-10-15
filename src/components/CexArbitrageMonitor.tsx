@@ -13,7 +13,7 @@ const CexArbitrageMonitor: React.FC = () => {
   const [autoRefresh, setAutoRefresh] = useState(false);
   const [refreshInterval, setRefreshInterval] = useState(30); // in seconds
   const [lastUpdateTime, setLastUpdateTime] = useState<string>('');
-  const [commonPairs, setCommonPairs] = useState<string[]>([]);
+  const [commonPairs, setCommonPairs] = useState<Array<{symbol: string; marketCapRank?: number}>>([]);
   const [loadingPairs, setLoadingPairs] = useState(false);
 
   // Default trading pairs to monitor - expanded list
@@ -21,7 +21,7 @@ const CexArbitrageMonitor: React.FC = () => {
     'BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'XRPUSDT', 'ADAUSDT', 'SOLUSDT', 'DOGEUSDT', 'DOTUSDT', 'MATICUSDT', 'LTCUSDT',
     'TRXUSDT', 'AVAXUSDT', 'LINKUSDT', 'ATOMUSDT', 'UNIUSDT', 'ETCUSDT', 'XLMUSDT', 'NEARUSDT', 'APTUSDT', 'FILUSDT',
     'ALGOUSDT', 'VETUSDT', 'ICPUSDT', 'ARBUSDT', 'OPUSDT', 'INJUSDT', 'MKRUSDT', 'AAVEUSDT', 'GRTUSDT', 'SHIBUSDT'
-  ];
+  ].map(symbol => ({ symbol, marketCapRank: undefined }));
 
   const fetchCommonPairs = async () => {
     setLoadingPairs(true);
@@ -135,11 +135,16 @@ const CexArbitrageMonitor: React.FC = () => {
       title: '交易对',
       dataIndex: 'symbol',
       key: 'symbol',
-      width: 120,
+      width: 140,
       fixed: 'left',
       render: (symbol: string, record) => (
         <Space direction="vertical" size={0}>
           <Text strong>{symbol}</Text>
+          {record.marketCapRank && (
+            <Text type="success" style={{ fontSize: '11px' }}>
+              市值排名: #{record.marketCapRank}
+            </Text>
+          )}
           {record.exchangeCount && (
             <Text type="secondary" style={{ fontSize: '11px' }}>
               {record.exchangeCount}/7 交易所
@@ -270,10 +275,13 @@ const CexArbitrageMonitor: React.FC = () => {
       <div style={{ marginTop: '16px' }}>
         <Space direction="vertical" size="small">
           <Text type="secondary" style={{ fontSize: '12px' }}>
-            说明: 以币安 {commonPairs.length || defaultPairs.length} 个交易对为基准，检查在其他交易所（OKX、Gate、Bybit、Bitget、火币、MEXC）的价格差异，优先显示在多个交易所都可交易的币种
+            说明: 以币安为基准，监控市值前1000的代币（共 {commonPairs.length} 个交易对），实时检查在其他交易所（OKX、Gate、Bybit、Bitget、火币、MEXC）的价格差异
           </Text>
           <Text type="secondary" style={{ fontSize: '12px' }}>
             套利机会: 当价差 &gt; 0.5% 时显示，可在低价交易所买入，高价交易所卖出
+          </Text>
+          <Text type="warning" style={{ fontSize: '12px' }}>
+            注意: 市值排名数据来自 CoinGecko，优先显示市值靠前的代币，每次刷新交易对列表会重新获取最新市值排名
           </Text>
         </Space>
       </div>
