@@ -13,11 +13,37 @@ const COINGECKO_API = 'https://api.coingecko.com/api/v3';
 export interface ExchangePrice {
   exchange: string;
   price: number;
+  bid?: number;
+  ask?: number;
+}
+
+interface PriceData {
+  price: number | null;
+  bid: number | null;
+  ask: number | null;
 }
 
 export interface TradingPairArbitrage {
   symbol: string;
   prices: {
+    binance?: number;
+    okx?: number;
+    gate?: number;
+    bitget?: number;
+    mexc?: number;
+    huobi?: number;
+    bybit?: number;
+  };
+  bids?: {
+    binance?: number;
+    okx?: number;
+    gate?: number;
+    bitget?: number;
+    mexc?: number;
+    huobi?: number;
+    bybit?: number;
+  };
+  asks?: {
     binance?: number;
     okx?: number;
     gate?: number;
@@ -393,23 +419,28 @@ const getDefaultPriorityPairs = (): string[] => {
 
 /**
  * Get price for a specific pair from Binance
+ * Uses bookTicker endpoint to get bid and ask prices for accurate arbitrage calculation
  */
-const getBinancePairPrice = async (symbol: string): Promise<number | null> => {
+const getBinancePairPrice = async (symbol: string): Promise<PriceData> => {
   try {
-    const response = await axios.get(`${BINANCE_API}/ticker/price`, {
+    const response = await axios.get(`${BINANCE_API}/ticker/bookTicker`, {
       params: { symbol: symbol.toUpperCase() },
       timeout: 5000,
     });
-    return parseFloat(response.data.price);
+    const bid = parseFloat(response.data.bidPrice);
+    const ask = parseFloat(response.data.askPrice);
+    const price = (bid + ask) / 2; // Use mid price as the reference price
+    return { price, bid, ask };
   } catch (error) {
-    return null;
+    return { price: null, bid: null, ask: null };
   }
 };
 
 /**
  * Get price for a specific pair from OKX
+ * Extracts bid and ask prices from ticker data
  */
-const getOKXPairPrice = async (symbol: string): Promise<number | null> => {
+const getOKXPairPrice = async (symbol: string): Promise<PriceData> => {
   try {
     const instId = symbol.replace('USDT', '-USDT');
     const response = await axios.get(`${OKX_API}/market/ticker`, {
@@ -417,18 +448,23 @@ const getOKXPairPrice = async (symbol: string): Promise<number | null> => {
       timeout: 5000,
     });
     if (response.data.data && response.data.data.length > 0) {
-      return parseFloat(response.data.data[0].last);
+      const ticker = response.data.data[0];
+      const bid = parseFloat(ticker.bidPx);
+      const ask = parseFloat(ticker.askPx);
+      const price = parseFloat(ticker.last);
+      return { price, bid, ask };
     }
-    return null;
+    return { price: null, bid: null, ask: null };
   } catch (error) {
-    return null;
+    return { price: null, bid: null, ask: null };
   }
 };
 
 /**
  * Get price for a specific pair from Gate.io
+ * Extracts bid and ask prices from ticker data
  */
-const getGatePairPrice = async (symbol: string): Promise<number | null> => {
+const getGatePairPrice = async (symbol: string): Promise<PriceData> => {
   try {
     const currencyPair = symbol.replace('USDT', '_USDT');
     const response = await axios.get(`${GATE_API}/spot/tickers`, {
@@ -436,86 +472,112 @@ const getGatePairPrice = async (symbol: string): Promise<number | null> => {
       timeout: 5000,
     });
     if (response.data && response.data.length > 0) {
-      return parseFloat(response.data[0].last);
+      const ticker = response.data[0];
+      const bid = parseFloat(ticker.highest_bid);
+      const ask = parseFloat(ticker.lowest_ask);
+      const price = parseFloat(ticker.last);
+      return { price, bid, ask };
     }
-    return null;
+    return { price: null, bid: null, ask: null };
   } catch (error) {
-    return null;
+    return { price: null, bid: null, ask: null };
   }
 };
 
 /**
  * Get price for a specific pair from Bitget
+ * Extracts bid and ask prices from ticker data
  */
-const getBitgetPairPrice = async (symbol: string): Promise<number | null> => {
+const getBitgetPairPrice = async (symbol: string): Promise<PriceData> => {
   try {
     const response = await axios.get(`${BITGET_API}/spot/market/tickers`, {
       params: { symbol: symbol.toUpperCase() },
       timeout: 5000,
     });
     if (response.data.data && response.data.data.length > 0) {
-      return parseFloat(response.data.data[0].lastPr);
+      const ticker = response.data.data[0];
+      const price = parseFloat(ticker.lastPr);
+      const bid = ticker.bidPr ? parseFloat(ticker.bidPr) : null;
+      const ask = ticker.askPr ? parseFloat(ticker.askPr) : null;
+      return { price, bid, ask };
     }
-    return null;
+    return { price: null, bid: null, ask: null };
   } catch (error) {
-    return null;
+    return { price: null, bid: null, ask: null };
   }
 };
 
 /**
  * Get price for a specific pair from MEXC
+ * Uses bookTicker endpoint to get bid and ask prices
  */
-const getMEXCPairPrice = async (symbol: string): Promise<number | null> => {
+const getMEXCPairPrice = async (symbol: string): Promise<PriceData> => {
   try {
-    const response = await axios.get(`${MEXC_API}/ticker/price`, {
+    const response = await axios.get(`${MEXC_API}/ticker/bookTicker`, {
       params: { symbol: symbol.toUpperCase() },
       timeout: 5000,
     });
-    return parseFloat(response.data.price);
+    const bid = parseFloat(response.data.bidPrice);
+    const ask = parseFloat(response.data.askPrice);
+    const price = (bid + ask) / 2; // Use mid price as the reference price
+    return { price, bid, ask };
   } catch (error) {
-    return null;
+    return { price: null, bid: null, ask: null };
   }
 };
 
 /**
  * Get price for a specific pair from Huobi
+ * Extracts bid and ask prices from merged market data
  */
-const getHuobiPairPrice = async (symbol: string): Promise<number | null> => {
+const getHuobiPairPrice = async (symbol: string): Promise<PriceData> => {
   try {
     const response = await axios.get(`${HUOBI_API}/market/detail/merged`, {
       params: { symbol: symbol.toLowerCase() },
       timeout: 5000,
     });
     if (response.data.tick) {
-      return parseFloat(response.data.tick.close);
+      const tick = response.data.tick;
+      const price = parseFloat(tick.close);
+      const bid = tick.bid ? parseFloat(tick.bid[0]) : null;
+      const ask = tick.ask ? parseFloat(tick.ask[0]) : null;
+      return { price, bid, ask };
     }
-    return null;
+    return { price: null, bid: null, ask: null };
   } catch (error) {
-    return null;
+    return { price: null, bid: null, ask: null };
   }
 };
 
 /**
  * Get price for a specific pair from Bybit
+ * Extracts bid and ask prices from ticker data
  */
-const getBybitPairPrice = async (symbol: string): Promise<number | null> => {
+const getBybitPairPrice = async (symbol: string): Promise<PriceData> => {
   try {
     const response = await axios.get(`${BYBIT_API}/market/tickers`, {
       params: { category: 'spot', symbol: symbol.toUpperCase() },
       timeout: 5000,
     });
     if (response.data.result && response.data.result.list && response.data.result.list.length > 0) {
-      return parseFloat(response.data.result.list[0].lastPrice);
+      const ticker = response.data.result.list[0];
+      const price = parseFloat(ticker.lastPrice);
+      const bid = ticker.bid1Price ? parseFloat(ticker.bid1Price) : null;
+      const ask = ticker.ask1Price ? parseFloat(ticker.ask1Price) : null;
+      return { price, bid, ask };
     }
-    return null;
+    return { price: null, bid: null, ask: null };
   } catch (error) {
-    return null;
+    return { price: null, bid: null, ask: null };
   }
 };
 
 /**
  * Get arbitrage data for a specific trading pair
  * Fetches prices from all exchanges and calculates arbitrage opportunities
+ * Uses bid/ask prices for accurate arbitrage calculation:
+ * - Ask price (selling price) is used when buying from an exchange
+ * - Bid price (buying price) is used when selling to an exchange
  * Uses Promise.allSettled to ensure all enabled exchanges are queried even if some fail
  * @param symbol - The trading pair symbol (e.g., 'BTCUSDT')
  * @param marketCapRank - The market cap ranking (optional)
@@ -525,7 +587,7 @@ export const getArbitrageForPair = async (symbol: string, marketCapRank?: number
   // If no enabled exchanges specified, use all exchanges
   const exchanges = enabledExchanges || ['binance', 'okx', 'gate', 'bitget', 'mexc', 'huobi', 'bybit'];
   
-  const pricePromises: Promise<number | null>[] = [];
+  const pricePromises: Promise<PriceData>[] = [];
   const exchangeKeys: string[] = [];
   
   // Only fetch prices from enabled exchanges
@@ -570,15 +632,41 @@ export const getArbitrageForPair = async (symbol: string, marketCapRank?: number
     huobi?: number;
     bybit?: number;
   } = {};
+
+  const bids: {
+    binance?: number;
+    okx?: number;
+    gate?: number;
+    bitget?: number;
+    mexc?: number;
+    huobi?: number;
+    bybit?: number;
+  } = {};
+
+  const asks: {
+    binance?: number;
+    okx?: number;
+    gate?: number;
+    bitget?: number;
+    mexc?: number;
+    huobi?: number;
+    bybit?: number;
+  } = {};
   
   exchangeKeys.forEach((exchange, index) => {
     const result = priceResults[index];
-    if (result.status === 'fulfilled' && result.value !== null) {
-      prices[exchange as keyof typeof prices] = result.value;
+    if (result.status === 'fulfilled' && result.value.price !== null) {
+      prices[exchange as keyof typeof prices] = result.value.price;
+      if (result.value.bid !== null) {
+        bids[exchange as keyof typeof bids] = result.value.bid;
+      }
+      if (result.value.ask !== null) {
+        asks[exchange as keyof typeof asks] = result.value.ask;
+      }
     }
   });
 
-  // Find highest and lowest prices among valid prices
+  // Find highest and lowest prices among valid prices for display purposes
   const validPrices = Object.entries(prices)
     .filter(([_, price]) => price !== undefined)
     .map(([exchange, price]) => ({ exchange, price: price as number }));
@@ -587,18 +675,27 @@ export const getArbitrageForPair = async (symbol: string, marketCapRank?: number
 
   // Need at least 2 exchanges with valid prices to calculate arbitrage
   if (exchangeCount < 2) {
-    return { symbol, prices, exchangeCount, marketCapRank };
+    return { symbol, prices, bids, asks, exchangeCount, marketCapRank };
   }
 
   const highest = validPrices.reduce((max, curr) => curr.price > max.price ? curr : max);
   const lowest = validPrices.reduce((min, curr) => curr.price < min.price ? curr : min);
 
-  const priceDiff = highest.price - lowest.price;
-  const priceDiffPercent = (priceDiff / lowest.price) * 100;
+  // For accurate arbitrage calculation:
+  // - When buying (from lowest exchange), use ask price (price you pay)
+  // - When selling (to highest exchange), use bid price (price you receive)
+  const buyPrice = asks[lowest.exchange as keyof typeof asks] || lowest.price; // Use ask price when buying
+  const sellPrice = bids[highest.exchange as keyof typeof bids] || highest.price; // Use bid price when selling
+
+  // Calculate actual arbitrage profit
+  const priceDiff = sellPrice - buyPrice;
+  const priceDiffPercent = (priceDiff / buyPrice) * 100;
 
   return {
     symbol,
     prices,
+    bids,
+    asks,
     highestPrice: highest.price,
     lowestPrice: lowest.price,
     highestExchange: highest.exchange,
