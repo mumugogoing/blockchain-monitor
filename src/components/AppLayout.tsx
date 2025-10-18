@@ -4,7 +4,8 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { 
   LogoutOutlined, 
   DashboardOutlined,
-  UserOutlined 
+  UserOutlined,
+  SettingOutlined
 } from '@ant-design/icons';
 import authService from '@/services/auth';
 
@@ -49,6 +50,13 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
         label: 'Starknet 监控',
       });
     }
+    
+    // 所有用户都可以访问设置
+    items.push({
+      key: '/settings',
+      icon: <SettingOutlined />,
+      label: '设置',
+    });
     
     return items;
   };

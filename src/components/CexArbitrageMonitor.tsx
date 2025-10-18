@@ -3,8 +3,10 @@ import { Card, Space, Typography, Table, Tag, Switch, message, Spin, Select, But
 import { ArrowUpOutlined, ArrowDownOutlined, SyncOutlined, SettingOutlined, ThunderboltOutlined, SwapOutlined, CheckCircleOutlined, CloseCircleOutlined } from '@ant-design/icons';
 import { getCommonTradingPairs, getArbitrageForPairs, type TradingPairArbitrage } from '@/api/cex-arbitrage';
 import { checkCurrencyCapability, type CurrencyInfo } from '@/api/cex-trading';
+import settingsService from '@/services/settings';
 import type { ColumnsType } from 'antd/es/table';
 import type { CheckboxChangeEvent } from 'antd/es/checkbox';
+import { useNavigate } from 'react-router-dom';
 
 const { Text } = Typography;
 const { Option } = Select;
@@ -18,6 +20,7 @@ interface ExchangeConfig {
 }
 
 const CexArbitrageMonitor: React.FC = () => {
+  const navigate = useNavigate();
   const [arbitrageData, setArbitrageData] = useState<TradingPairArbitrage[]>([]);
   const [loading, setLoading] = useState(false);
   const [autoRefresh, setAutoRefresh] = useState(false);
@@ -27,6 +30,7 @@ const CexArbitrageMonitor: React.FC = () => {
   const [loadingPairs, setLoadingPairs] = useState(false);
   const [settingsDrawerVisible, setSettingsDrawerVisible] = useState(false);
   const [tokenSearchText, setTokenSearchText] = useState('');
+  const [hasApiKeys, setHasApiKeys] = useState(false);
   
   // Trading modal states
   const [tradingModalVisible, setTradingModalVisible] = useState(false);
@@ -63,7 +67,24 @@ const CexArbitrageMonitor: React.FC = () => {
         console.error('Failed to parse saved exchanges:', e);
       }
     }
+    
+    // Check if user has configured any API keys
+    checkApiKeysConfigured();
   }, []);
+
+  // Check if user has any API keys configured
+  const checkApiKeysConfigured = async () => {
+    try {
+      const settings = await settingsService.getExchangeSettings();
+      const hasKeys = Object.values(settings).some(
+        cred => cred && cred.apiKey && cred.secretKey && cred.enabled
+      );
+      setHasApiKeys(hasKeys);
+    } catch (error) {
+      console.error('Failed to check API keys:', error);
+      setHasApiKeys(false);
+    }
+  };
 
   // Default trading pairs to monitor - expanded list
   const defaultPairs = [
@@ -240,15 +261,46 @@ const CexArbitrageMonitor: React.FC = () => {
   };
 
   // Handle one-click buy
-  const handleOneClickBuy = () => {
+  const handleOneClickBuy = async () => {
     if (!selectedArbitrage) return;
+    
+    if (!hasApiKeys) {
+      Modal.confirm({
+        title: '未配置 API Key',
+        content: '您还没有配置交易所的 API Key。是否现在去配置？',
+        okText: '去配置',
+        cancelText: '取消',
+        onOk: () => {
+          navigate('/settings');
+        },
+      });
+      return;
+    }
+
+    // Check if the specific exchange has API keys
+    const exchangeCreds = await settingsService.getExchangeCredentials(
+      selectedArbitrage.lowestExchange || ''
+    );
+    
+    if (!exchangeCreds || !exchangeCreds.apiKey || !exchangeCreds.secretKey) {
+      Modal.confirm({
+        title: '未配置此交易所 API Key',
+        content: `您还没有配置 ${selectedArbitrage.lowestExchange} 的 API Key。是否现在去配置？`,
+        okText: '去配置',
+        cancelText: '取消',
+        onOk: () => {
+          navigate('/settings');
+        },
+      });
+      return;
+    }
     
     Modal.confirm({
       title: '确认买入',
       content: `确认在 ${selectedArbitrage.lowestExchange} 以市价买入 ${selectedArbitrage.symbol}?`,
       onOk: async () => {
-        message.info('买入功能需要配置 API Key 才能使用');
-        // In production, this would call placeMarketBuyOrder
+        message.info('买入功能正在开发中，将使用您配置的 API Key 执行交易');
+        // In production, this would call placeMarketBuyOrder with the API keys from exchangeCreds
       },
     });
   };
@@ -300,29 +352,91 @@ const CexArbitrageMonitor: React.FC = () => {
   };
 
   // Handle one-click spot sell
-  const handleSpotSell = () => {
+  const handleSpotSell = async () => {
     if (!selectedArbitrage) return;
+    
+    if (!hasApiKeys) {
+      Modal.confirm({
+        title: '未配置 API Key',
+        content: '您还没有配置交易所的 API Key。是否现在去配置？',
+        okText: '去配置',
+        cancelText: '取消',
+        onOk: () => {
+          navigate('/settings');
+        },
+      });
+      return;
+    }
+
+    // Check if the specific exchange has API keys
+    const exchangeCreds = await settingsService.getExchangeCredentials(
+      selectedArbitrage.highestExchange || ''
+    );
+    
+    if (!exchangeCreds || !exchangeCreds.apiKey || !exchangeCreds.secretKey) {
+      Modal.confirm({
+        title: '未配置此交易所 API Key',
+        content: `您还没有配置 ${selectedArbitrage.highestExchange} 的 API Key。是否现在去配置？`,
+        okText: '去配置',
+        cancelText: '取消',
+        onOk: () => {
+          navigate('/settings');
+        },
+      });
+      return;
+    }
     
     Modal.confirm({
       title: '确认现货卖出',
       content: `确认在 ${selectedArbitrage.highestExchange} 以市价卖出 ${selectedArbitrage.symbol}?`,
       onOk: async () => {
-        message.info('现货卖出功能需要配置 API Key 才能使用');
-        // In production, this would call placeMarketSellOrder
+        message.info('现货卖出功能正在开发中，将使用您配置的 API Key 执行交易');
+        // In production, this would call placeMarketSellOrder with the API keys from exchangeCreds
       },
     });
   };
 
   // Handle one-click futures sell
-  const handleFuturesSell = () => {
+  const handleFuturesSell = async () => {
     if (!selectedArbitrage) return;
+    
+    if (!hasApiKeys) {
+      Modal.confirm({
+        title: '未配置 API Key',
+        content: '您还没有配置交易所的 API Key。是否现在去配置？',
+        okText: '去配置',
+        cancelText: '取消',
+        onOk: () => {
+          navigate('/settings');
+        },
+      });
+      return;
+    }
+
+    // Check if the specific exchange has API keys
+    const exchangeCreds = await settingsService.getExchangeCredentials(
+      selectedArbitrage.highestExchange || ''
+    );
+    
+    if (!exchangeCreds || !exchangeCreds.apiKey || !exchangeCreds.secretKey) {
+      Modal.confirm({
+        title: '未配置此交易所 API Key',
+        content: `您还没有配置 ${selectedArbitrage.highestExchange} 的 API Key。是否现在去配置？`,
+        okText: '去配置',
+        cancelText: '取消',
+        onOk: () => {
+          navigate('/settings');
+        },
+      });
+      return;
+    }
     
     Modal.confirm({
       title: '确认合约卖出',
       content: `确认在 ${selectedArbitrage.highestExchange} 开合约空单卖出 ${selectedArbitrage.symbol}?`,
       onOk: async () => {
-        message.info('合约卖出功能需要配置 API Key 才能使用');
-        // In production, this would call placeFuturesSellOrder
+        message.info('合约卖出功能正在开发中，将使用您配置的 API Key 执行交易');
+        // In production, this would call placeFuturesSellOrder with the API keys from exchangeCreds
       },
     });
   };
@@ -718,13 +832,34 @@ const CexArbitrageMonitor: React.FC = () => {
 
             {/* Trading Actions */}
             <Card size="small" title="交易操作">
-              <Alert
-                message="提示"
-                description="以下功能需要配置 API Key 才能使用。请在设置中配置您的交易所 API Key。"
-                type="info"
-                showIcon
-                style={{ marginBottom: 16 }}
-              />
+              {!hasApiKeys ? (
+                <Alert
+                  message="需要配置 API Key"
+                  description={
+                    <Space direction="vertical">
+                      <Text>要使用一键交易功能，您需要先配置交易所的 API Key。</Text>
+                      <Button 
+                        type="primary" 
+                        icon={<SettingOutlined />}
+                        onClick={() => navigate('/settings')}
+                      >
+                        前往设置
+                      </Button>
+                    </Space>
+                  }
+                  type="warning"
+                  showIcon
+                  style={{ marginBottom: 16 }}
+                />
+              ) : (
+                <Alert
+                  message="提示"
+                  description="以下功能将使用您在设置中配置的 API Key。请在设置中配置您的交易所 API Key。"
+                  type="info"
+                  showIcon
+                  style={{ marginBottom: 16 }}
+                />
+              )}
               
               <Space direction="vertical" style={{ width: '100%' }} size="middle">
                 {/* Step 1: Buy */}
