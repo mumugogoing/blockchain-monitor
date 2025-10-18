@@ -8,6 +8,7 @@ import AppLayout from './components/AppLayout';
 import StxDevMonitor from './views/stacks/StackDev';
 import StarknetMonitor from './views/StarknetMonitor';
 import CexArbitrage from './views/CexArbitrage';
+import Settings from './views/Settings';
 import authService from './services/auth';
 
 const App: React.FC = () => {
@@ -45,6 +46,17 @@ const App: React.FC = () => {
               <ProtectedRoute requiredRole={['super', 'stx']}>
                 <AppLayout>
                   <CexArbitrage />
+                </AppLayout>
+              </ProtectedRoute>
+            }
+          />
+          
+          <Route
+            path="/settings"
+            element={
+              <ProtectedRoute requiredRole={['super', 'stx', 'stark']}>
+                <AppLayout>
+                  <Settings />
                 </AppLayout>
               </ProtectedRoute>
             }
