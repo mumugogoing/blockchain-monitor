@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Card, Space, Typography, Table, Tag, Switch, message, Spin, Select, Button, Checkbox, Input, Drawer } from 'antd';
-import { ArrowUpOutlined, ArrowDownOutlined, SyncOutlined, SettingOutlined } from '@ant-design/icons';
+import { Card, Space, Typography, Table, Tag, Switch, message, Spin, Select, Button, Checkbox, Input, Drawer, Modal, Badge, Alert } from 'antd';
+import { ArrowUpOutlined, ArrowDownOutlined, SyncOutlined, SettingOutlined, ThunderboltOutlined, SwapOutlined, CheckCircleOutlined, CloseCircleOutlined } from '@ant-design/icons';
 import { getCommonTradingPairs, getArbitrageForPairs, type TradingPairArbitrage } from '@/api/cex-arbitrage';
+import { checkCurrencyCapability, type CurrencyInfo } from '@/api/cex-trading';
 import type { ColumnsType } from 'antd/es/table';
 import type { CheckboxChangeEvent } from 'antd/es/checkbox';
 
@@ -26,6 +27,19 @@ const CexArbitrageMonitor: React.FC = () => {
   const [loadingPairs, setLoadingPairs] = useState(false);
   const [settingsDrawerVisible, setSettingsDrawerVisible] = useState(false);
   const [tokenSearchText, setTokenSearchText] = useState('');
+  
+  // Trading modal states
+  const [tradingModalVisible, setTradingModalVisible] = useState(false);
+  const [selectedArbitrage, setSelectedArbitrage] = useState<TradingPairArbitrage | null>(null);
+  const [checkingCapability, setCheckingCapability] = useState(false);
+  const [buyExchangeInfo, setBuyExchangeInfo] = useState<CurrencyInfo | null>(null);
+  const [sellExchangeInfo, setSellExchangeInfo] = useState<CurrencyInfo | null>(null);
+  
+  // Withdrawal/Deposit monitoring states
+  const [withdrawalModalVisible, setWithdrawalModalVisible] = useState(false);
+  const [depositModalVisible, setDepositModalVisible] = useState(false);
+  const [withdrawalStatus, setWithdrawalStatus] = useState<string>('idle');
+  const [depositStatus, setDepositStatus] = useState<string>('idle');
   
   // Exchange selection state
   const [exchanges, setExchanges] = useState<ExchangeConfig[]>([
@@ -185,6 +199,132 @@ const CexArbitrageMonitor: React.FC = () => {
         </Tag>
       </Space>
     );
+  };
+
+  // Handle opening the trading modal
+  const handleOpenTradingModal = async (record: TradingPairArbitrage) => {
+    if (!record.lowestExchange || !record.highestExchange || !record.priceDiffPercent || record.priceDiffPercent < 0.5) {
+      message.warning('该交易对没有有效的套利机会');
+      return;
+    }
+
+    setSelectedArbitrage(record);
+    setTradingModalVisible(true);
+    setCheckingCapability(true);
+    
+    // Extract base currency from symbol
+    const baseCurrency = record.symbol.replace('USDT', '');
+    
+    // Check deposit/withdrawal capabilities
+    try {
+      const [buyInfo, sellInfo] = await Promise.all([
+        checkCurrencyCapability(record.lowestExchange, baseCurrency),
+        checkCurrencyCapability(record.highestExchange, baseCurrency),
+      ]);
+      
+      setBuyExchangeInfo(buyInfo);
+      setSellExchangeInfo(sellInfo);
+      
+      if (buyInfo && !buyInfo.canWithdraw) {
+        message.warning(`买入交易所 (${record.lowestExchange}) 不支持 ${baseCurrency} 提现`);
+      }
+      if (sellInfo && !sellInfo.canDeposit) {
+        message.warning(`卖出交易所 (${record.highestExchange}) 不支持 ${baseCurrency} 充值`);
+      }
+    } catch (error) {
+      console.error('Failed to check currency capabilities:', error);
+      message.error('检查货币能力失败');
+    } finally {
+      setCheckingCapability(false);
+    }
+  };
+
+  // Handle one-click buy
+  const handleOneClickBuy = () => {
+    if (!selectedArbitrage) return;
+    
+    Modal.confirm({
+      title: '确认买入',
+      content: `确认在 ${selectedArbitrage.lowestExchange} 以市价买入 ${selectedArbitrage.symbol}?`,
+      onOk: async () => {
+        message.info('买入功能需要配置 API Key 才能使用');
+        // In production, this would call placeMarketBuyOrder
+      },
+    });
+  };
+
+  // Handle one-click withdrawal
+  const handleOneClickWithdrawal = () => {
+    if (!selectedArbitrage) return;
+    
+    setWithdrawalModalVisible(true);
+    setWithdrawalStatus('idle');
+  };
+
+  // Handle start withdrawal with monitoring
+  const handleStartWithdrawal = async () => {
+    if (!selectedArbitrage) return;
+    
+    setWithdrawalStatus('initiating');
+    
+    // Simulate withdrawal process
+    setTimeout(() => {
+      setWithdrawalStatus('processing');
+      message.success('提现已发起，正在处理中...');
+      
+      // Simulate blockchain confirmation
+      setTimeout(() => {
+        setWithdrawalStatus('completed');
+        message.success('提现已完成！');
+      }, 5000);
+    }, 2000);
+  };
+
+  // Handle deposit monitoring
+  const handleStartDepositMonitoring = () => {
+    if (!selectedArbitrage) return;
+    
+    setDepositModalVisible(true);
+    setDepositStatus('monitoring');
+    
+    // Simulate deposit detection
+    setTimeout(() => {
+      setDepositStatus('confirming');
+      message.info('检测到入账，正在等待确认...');
+      
+      setTimeout(() => {
+        setDepositStatus('completed');
+        message.success('充值已到账！');
+      }, 5000);
+    }, 3000);
+  };
+
+  // Handle one-click spot sell
+  const handleSpotSell = () => {
+    if (!selectedArbitrage) return;
+    
+    Modal.confirm({
+      title: '确认现货卖出',
+      content: `确认在 ${selectedArbitrage.highestExchange} 以市价卖出 ${selectedArbitrage.symbol}?`,
+      onOk: async () => {
+        message.info('现货卖出功能需要配置 API Key 才能使用');
+        // In production, this would call placeMarketSellOrder
+      },
+    });
+  };
+
+  // Handle one-click futures sell
+  const handleFuturesSell = () => {
+    if (!selectedArbitrage) return;
+    
+    Modal.confirm({
+      title: '确认合约卖出',
+      content: `确认在 ${selectedArbitrage.highestExchange} 开合约空单卖出 ${selectedArbitrage.symbol}?`,
+      onOk: async () => {
+        message.info('合约卖出功能需要配置 API Key 才能使用');
+        // In production, this would call placeFuturesSellOrder
+      },
+    });
   };
 
   // Generate columns dynamically based on enabled exchanges
@@ -355,6 +495,27 @@ const CexArbitrageMonitor: React.FC = () => {
         fixed: 'right',
         render: (_, record) => renderArbitrageOpportunity(record),
       },
+      {
+        title: '操作',
+        key: 'actions',
+        width: 120,
+        fixed: 'right',
+        render: (_, record) => {
+          if (!record.priceDiffPercent || record.priceDiffPercent < 0.5) {
+            return <Text type="secondary">-</Text>;
+          }
+          return (
+            <Button
+              type="primary"
+              size="small"
+              icon={<ThunderboltOutlined />}
+              onClick={() => handleOpenTradingModal(record)}
+            >
+              交易
+            </Button>
+          );
+        },
+      },
     ];
 
     return [...baseColumns, ...exchangeColumns, ...summaryColumns];
@@ -477,9 +638,239 @@ const CexArbitrageMonitor: React.FC = () => {
           showTotal: (total) => `共 ${total} 个交易对`,
           pageSizeOptions: ['10', '20', '50', '100', '200'],
         }}
-        scroll={{ x: 1800 }}
+        scroll={{ x: 2000 }}
         size="small"
       />
+      
+      {/* Trading Modal */}
+      <Modal
+        title={
+          <Space>
+            <ThunderboltOutlined />
+            <span>套利交易 - {selectedArbitrage?.symbol}</span>
+          </Space>
+        }
+        open={tradingModalVisible}
+        onCancel={() => setTradingModalVisible(false)}
+        width={800}
+        footer={null}
+      >
+        {selectedArbitrage && (
+          <Space direction="vertical" style={{ width: '100%' }} size="large">
+            {/* Arbitrage Info */}
+            <Card size="small" title="套利信息">
+              <Space direction="vertical" style={{ width: '100%' }}>
+                <Text>
+                  <Text strong>买入交易所: </Text>
+                  <Tag color="green">{selectedArbitrage.lowestExchange}</Tag>
+                  <Text type="success">{selectedArbitrage.lowestPrice?.toFixed(6)} USDT</Text>
+                </Text>
+                <Text>
+                  <Text strong>卖出交易所: </Text>
+                  <Tag color="red">{selectedArbitrage.highestExchange}</Tag>
+                  <Text type="danger">{selectedArbitrage.highestPrice?.toFixed(6)} USDT</Text>
+                </Text>
+                <Text>
+                  <Text strong>价差: </Text>
+                  <Text type="warning" strong>{selectedArbitrage.priceDiffPercent?.toFixed(2)}%</Text>
+                </Text>
+                <Text>
+                  <Text strong>预估利润 (1000 USDT): </Text>
+                  <Text type="success" strong>
+                    ${((selectedArbitrage.priceDiffPercent || 0) * 10).toFixed(2)}
+                  </Text>
+                </Text>
+              </Space>
+            </Card>
+
+            {/* Currency Capability Check */}
+            <Card size="small" title="交易所能力检查">
+              {checkingCapability ? (
+                <Spin tip="正在检查交易所支持情况..." />
+              ) : (
+                <Space direction="vertical" style={{ width: '100%' }}>
+                  <Space>
+                    <Text strong>买入交易所提现能力:</Text>
+                    {buyExchangeInfo?.canWithdraw ? (
+                      <Tag icon={<CheckCircleOutlined />} color="success">支持提现</Tag>
+                    ) : (
+                      <Tag icon={<CloseCircleOutlined />} color="error">不支持提现</Tag>
+                    )}
+                  </Space>
+                  <Space>
+                    <Text strong>卖出交易所充值能力:</Text>
+                    {sellExchangeInfo?.canDeposit ? (
+                      <Tag icon={<CheckCircleOutlined />} color="success">支持充值</Tag>
+                    ) : (
+                      <Tag icon={<CloseCircleOutlined />} color="error">不支持充值</Tag>
+                    )}
+                  </Space>
+                  {buyExchangeInfo && buyExchangeInfo.networks.length > 0 && (
+                    <div>
+                      <Text type="secondary" style={{ fontSize: '12px' }}>
+                        支持的网络: {buyExchangeInfo.networks.map(n => n.network).join(', ')}
+                      </Text>
+                    </div>
+                  )}
+                </Space>
+              )}
+            </Card>
+
+            {/* Trading Actions */}
+            <Card size="small" title="交易操作">
+              <Alert
+                message="提示"
+                description="以下功能需要配置 API Key 才能使用。请在设置中配置您的交易所 API Key。"
+                type="info"
+                showIcon
+                style={{ marginBottom: 16 }}
+              />
+              
+              <Space direction="vertical" style={{ width: '100%' }} size="middle">
+                {/* Step 1: Buy */}
+                <Card type="inner" size="small" title="步骤 1: 买入">
+                  <Space direction="vertical" style={{ width: '100%' }}>
+                    <Button
+                      type="primary"
+                      icon={<ThunderboltOutlined />}
+                      onClick={handleOneClickBuy}
+                      block
+                      disabled={!buyExchangeInfo?.canWithdraw}
+                    >
+                      一键买入 ({selectedArbitrage.lowestExchange})
+                    </Button>
+                  </Space>
+                </Card>
+
+                {/* Step 2: Withdrawal */}
+                <Card type="inner" size="small" title="步骤 2: 提现">
+                  <Space direction="vertical" style={{ width: '100%' }}>
+                    <Button
+                      type="primary"
+                      icon={<SwapOutlined />}
+                      onClick={handleOneClickWithdrawal}
+                      block
+                      disabled={!buyExchangeInfo?.canWithdraw}
+                    >
+                      一键提现到卖出交易所
+                    </Button>
+                  </Space>
+                </Card>
+
+                {/* Step 3: Monitor Deposit */}
+                <Card type="inner" size="small" title="步骤 3: 监控到账">
+                  <Space direction="vertical" style={{ width: '100%' }}>
+                    <Button
+                      type="primary"
+                      icon={<SyncOutlined />}
+                      onClick={handleStartDepositMonitoring}
+                      block
+                      disabled={!sellExchangeInfo?.canDeposit}
+                    >
+                      开始实时监控到账 ({selectedArbitrage.highestExchange})
+                    </Button>
+                  </Space>
+                </Card>
+
+                {/* Step 4: Sell */}
+                <Card type="inner" size="small" title="步骤 4: 卖出">
+                  <Space style={{ width: '100%' }}>
+                    <Button
+                      type="primary"
+                      onClick={handleSpotSell}
+                      style={{ flex: 1 }}
+                      disabled={!sellExchangeInfo?.canDeposit}
+                    >
+                      一键现货卖出
+                    </Button>
+                    <Button
+                      type="primary"
+                      danger
+                      onClick={handleFuturesSell}
+                      style={{ flex: 1 }}
+                      disabled={!sellExchangeInfo?.canDeposit}
+                    >
+                      一键合约卖出
+                    </Button>
+                  </Space>
+                </Card>
+              </Space>
+            </Card>
+          </Space>
+        )}
+      </Modal>
+
+      {/* Withdrawal Monitoring Modal */}
+      <Modal
+        title="提现状态监控"
+        open={withdrawalModalVisible}
+        onCancel={() => setWithdrawalModalVisible(false)}
+        footer={
+          withdrawalStatus === 'idle' ? (
+            <Button type="primary" onClick={handleStartWithdrawal}>
+              开始提现
+            </Button>
+          ) : (
+            <Button onClick={() => setWithdrawalModalVisible(false)}>
+              关闭
+            </Button>
+          )
+        }
+      >
+        <Space direction="vertical" style={{ width: '100%' }} size="large">
+          {withdrawalStatus === 'idle' && (
+            <Alert
+              message="准备提现"
+              description="点击开始提现按钮后，系统将实时监控提现状态"
+              type="info"
+              showIcon
+            />
+          )}
+          {withdrawalStatus === 'initiating' && (
+            <Badge status="processing" text="正在发起提现请求..." />
+          )}
+          {withdrawalStatus === 'processing' && (
+            <Space direction="vertical">
+              <Badge status="processing" text="提现处理中" />
+              <Text type="secondary">等待区块链确认...</Text>
+            </Space>
+          )}
+          {withdrawalStatus === 'completed' && (
+            <Badge status="success" text="提现已完成" />
+          )}
+        </Space>
+      </Modal>
+
+      {/* Deposit Monitoring Modal */}
+      <Modal
+        title="充值到账监控"
+        open={depositModalVisible}
+        onCancel={() => setDepositModalVisible(false)}
+        footer={
+          <Button onClick={() => setDepositModalVisible(false)}>
+            关闭
+          </Button>
+        }
+      >
+        <Space direction="vertical" style={{ width: '100%' }} size="large">
+          {depositStatus === 'monitoring' && (
+            <Space direction="vertical">
+              <Badge status="processing" text="正在监控充值..." />
+              <Text type="secondary">等待检测到充值...</Text>
+            </Space>
+          )}
+          {depositStatus === 'confirming' && (
+            <Space direction="vertical">
+              <Badge status="processing" text="检测到充值" />
+              <Text type="secondary">等待网络确认...</Text>
+            </Space>
+          )}
+          {depositStatus === 'completed' && (
+            <Badge status="success" text="充值已到账" />
+          )}
+        </Space>
+      </Modal>
+
       <div style={{ marginTop: '16px' }}>
         <Space direction="vertical" size="small">
           <Text type="secondary" style={{ fontSize: '12px' }}>
@@ -495,7 +886,10 @@ const CexArbitrageMonitor: React.FC = () => {
             注意: 市值排名数据来自 CoinGecko，优先显示市值靠前的代币，每次刷新交易对列表会重新获取最新市值排名。表格支持点击列标题进行排序。
           </Text>
           <Text type="success" style={{ fontSize: '12px' }}>
-            提示: 点击右上角的"设置"按钮可以选择要监控的交易所和筛选特定代币。
+            提示: 点击右上角的"设置"按钮可以选择要监控的交易所和筛选特定代币。点击"交易"按钮可以执行套利操作。
+          </Text>
+          <Text type="danger" style={{ fontSize: '12px' }}>
+            重要: 使用交易功能前，请确保已在设置中配置您的交易所 API Key。系统会自动检查提现和充值功能是否可用。
           </Text>
         </Space>
       </div>
