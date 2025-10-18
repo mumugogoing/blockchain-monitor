@@ -159,9 +159,10 @@ export const getBybitPrice = async (symbol: string): Promise<number | null> => {
 
 /**
  * Get all CEX prices for a token
+ * Uses Promise.allSettled to ensure all exchanges are queried even if some fail
  */
 export const getAllCEXPrices = async (symbol: string): Promise<TokenPrice['cexPrices']> => {
-  const [binance, okx, gate, bitget, mexc, huobi, bybit] = await Promise.all([
+  const results = await Promise.allSettled([
     getBinancePrice(symbol),
     getOKXPrice(symbol),
     getGatePrice(symbol),
@@ -172,13 +173,13 @@ export const getAllCEXPrices = async (symbol: string): Promise<TokenPrice['cexPr
   ]);
 
   return {
-    binance: binance ?? undefined,
-    okx: okx ?? undefined,
-    gate: gate ?? undefined,
-    bitget: bitget ?? undefined,
-    mexc: mexc ?? undefined,
-    huobi: huobi ?? undefined,
-    bybit: bybit ?? undefined,
+    binance: results[0].status === 'fulfilled' ? results[0].value ?? undefined : undefined,
+    okx: results[1].status === 'fulfilled' ? results[1].value ?? undefined : undefined,
+    gate: results[2].status === 'fulfilled' ? results[2].value ?? undefined : undefined,
+    bitget: results[3].status === 'fulfilled' ? results[3].value ?? undefined : undefined,
+    mexc: results[4].status === 'fulfilled' ? results[4].value ?? undefined : undefined,
+    huobi: results[5].status === 'fulfilled' ? results[5].value ?? undefined : undefined,
+    bybit: results[6].status === 'fulfilled' ? results[6].value ?? undefined : undefined,
   };
 };
 

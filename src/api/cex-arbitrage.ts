@@ -88,7 +88,7 @@ const getTopTokensByMarketCap = async (limit: number = 1000): Promise<Map<string
     const perPage = 250; // CoinGecko API limit per page
     const pages = Math.ceil(limit / perPage);
     
-    // Fetch multiple pages in parallel
+    // Fetch multiple pages in parallel using Promise.allSettled
     const pagePromises = [];
     for (let page = 1; page <= pages; page++) {
       pagePromises.push(
@@ -101,21 +101,18 @@ const getTopTokensByMarketCap = async (limit: number = 1000): Promise<Map<string
             sparkline: false,
           },
           timeout: 15000,
-        }).catch(err => {
-          console.error(`Failed to fetch page ${page} from CoinGecko:`, err.message);
-          return null;
         })
       );
     }
     
-    const responses = await Promise.all(pagePromises);
+    const responses = await Promise.allSettled(pagePromises);
     
     // Process all responses
     let successCount = 0;
-    responses.forEach((response, pageIndex) => {
-      if (response && response.data) {
+    responses.forEach((result, pageIndex) => {
+      if (result.status === 'fulfilled' && result.value.data) {
         successCount++;
-        response.data.forEach((coin: any, index: number) => {
+        result.value.data.forEach((coin: any, index: number) => {
           const rank = pageIndex * perPage + index + 1;
           if (rank <= limit) {
             // Store both the symbol and common variations
@@ -310,8 +307,8 @@ export const getCommonTradingPairs = async (): Promise<Array<{symbol: string; ma
     return defaultPairs.map(symbol => ({ symbol, marketCapRank: undefined }));
   }
 
-  // Fetch pairs from other exchanges in parallel
-  const [okx, gate, bitget, mexc, huobi, bybit] = await Promise.all([
+  // Fetch pairs from other exchanges in parallel using Promise.allSettled
+  const results = await Promise.allSettled([
     getOKXPairs(),
     getGatePairs(),
     getBitgetPairs(),
@@ -319,6 +316,13 @@ export const getCommonTradingPairs = async (): Promise<Array<{symbol: string; ma
     getHuobiPairs(),
     getBybitPairs(),
   ]);
+
+  const okx = results[0].status === 'fulfilled' ? results[0].value : [];
+  const gate = results[1].status === 'fulfilled' ? results[1].value : [];
+  const bitget = results[2].status === 'fulfilled' ? results[2].value : [];
+  const mexc = results[3].status === 'fulfilled' ? results[3].value : [];
+  const huobi = results[4].status === 'fulfilled' ? results[4].value : [];
+  const bybit = results[5].status === 'fulfilled' ? results[5].value : [];
 
   // Get Binance 24hr ticker data for volume-based ranking as fallback
   const binanceTickerData = await getBinance24hrTicker();
@@ -512,6 +516,7 @@ const getBybitPairPrice = async (symbol: string): Promise<number | null> => {
 /**
  * Get arbitrage data for a specific trading pair
  * Fetches prices from all exchanges and calculates arbitrage opportunities
+ * Uses Promise.allSettled to ensure all enabled exchanges are queried even if some fail
  * @param symbol - The trading pair symbol (e.g., 'BTCUSDT')
  * @param marketCapRank - The market cap ranking (optional)
  * @param enabledExchanges - List of enabled exchanges to fetch prices from (optional, defaults to all)
@@ -553,7 +558,7 @@ export const getArbitrageForPair = async (symbol: string, marketCapRank?: number
     exchangeKeys.push('bybit');
   }
   
-  const priceResults = await Promise.all(pricePromises);
+  const priceResults = await Promise.allSettled(pricePromises);
 
   // Map price results back to their exchanges
   const prices: {
@@ -567,9 +572,9 @@ export const getArbitrageForPair = async (symbol: string, marketCapRank?: number
   } = {};
   
   exchangeKeys.forEach((exchange, index) => {
-    const price = priceResults[index];
-    if (price !== null) {
-      prices[exchange as keyof typeof prices] = price;
+    const result = priceResults[index];
+    if (result.status === 'fulfilled' && result.value !== null) {
+      prices[exchange as keyof typeof prices] = result.value;
     }
   });
 
@@ -607,12 +612,17 @@ export const getArbitrageForPair = async (symbol: string, marketCapRank?: number
 
 /**
  * Get arbitrage data for multiple trading pairs
+ * Uses Promise.allSettled to ensure all pairs are processed even if some fail
  * @param symbolsWithRanks - Array of trading pair symbols with their market cap ranks
  * @param enabledExchanges - List of enabled exchanges to fetch prices from (optional)
  */
 export const getArbitrageForPairs = async (symbolsWithRanks: Array<{symbol: string; marketCapRank?: number}>, enabledExchanges?: string[]): Promise<TradingPairArbitrage[]> => {
-  const results = await Promise.all(
+  const results = await Promise.allSettled(
     symbolsWithRanks.map(({ symbol, marketCapRank }) => getArbitrageForPair(symbol, marketCapRank, enabledExchanges))
   );
-  return results;
+  
+  // Extract successful results and filter out failed ones
+  return results
+    .filter((result): result is PromiseFulfilledResult<TradingPairArbitrage> => result.status === 'fulfilled')
+    .map(result => result.value);
 };
