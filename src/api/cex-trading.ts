@@ -1,10 +1,19 @@
 import axios from 'axios';
+import settingsService from '@/services/settings';
 
 // Exchange API endpoints for trading operations
 const BINANCE_API = 'https://api.binance.com/api/v3';
 const OKX_API = 'https://www.okx.com/api/v5';
 const GATE_API = 'https://api.gate.io/api/v4';
 const BYBIT_API = 'https://api.bybit.com/v5';
+
+/**
+ * 获取交易所的 Base URL
+ */
+const getExchangeBaseURL = async (exchange: string, defaultURL: string): Promise<string> => {
+  const credentials = await settingsService.getExchangeCredentials(exchange);
+  return credentials?.baseURL || defaultURL;
+};
 
 export interface CurrencyInfo {
   currency: string;
@@ -101,7 +110,8 @@ export const checkCurrencyCapability = async (
  * Check Binance currency deposit/withdrawal capability
  */
 const checkBinanceCurrency = async (currency: string): Promise<CurrencyInfo> => {
-  const response = await axios.get(`${BINANCE_API}/capital/config/getall`, {
+  const baseURL = await getExchangeBaseURL('binance', BINANCE_API);
+  const response = await axios.get(`${baseURL}/capital/config/getall`, {
     timeout: 10000,
   });
   
@@ -140,7 +150,8 @@ const checkBinanceCurrency = async (currency: string): Promise<CurrencyInfo> => 
  * Check OKX currency deposit/withdrawal capability
  */
 const checkOKXCurrency = async (currency: string): Promise<CurrencyInfo> => {
-  const response = await axios.get(`${OKX_API}/asset/currencies`, {
+  const baseURL = await getExchangeBaseURL('okx', OKX_API);
+  const response = await axios.get(`${baseURL}/asset/currencies`, {
     params: { ccy: currency.toUpperCase() },
     timeout: 10000,
   });
@@ -176,7 +187,8 @@ const checkOKXCurrency = async (currency: string): Promise<CurrencyInfo> => {
  * Check Gate.io currency deposit/withdrawal capability
  */
 const checkGateCurrency = async (currency: string): Promise<CurrencyInfo> => {
-  const response = await axios.get(`${GATE_API}/wallet/currency_chains`, {
+  const baseURL = await getExchangeBaseURL('gate', GATE_API);
+  const response = await axios.get(`${baseURL}/wallet/currency_chains`, {
     params: { currency: currency.toUpperCase() },
     timeout: 10000,
   });
@@ -252,7 +264,8 @@ const checkHuobiCurrency = async (currency: string): Promise<CurrencyInfo> => {
  * Check Bybit currency deposit/withdrawal capability
  */
 const checkBybitCurrency = async (currency: string): Promise<CurrencyInfo> => {
-  const response = await axios.get(`${BYBIT_API}/asset/coin/query-info`, {
+  const baseURL = await getExchangeBaseURL('bybit', BYBIT_API);
+  const response = await axios.get(`${baseURL}/asset/coin/query-info`, {
     params: { coin: currency.toUpperCase() },
     timeout: 10000,
   });
