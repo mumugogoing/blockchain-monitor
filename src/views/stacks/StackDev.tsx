@@ -15,22 +15,14 @@ import {
   Select,
   Tooltip,
   InputNumber,
-  Badge,
-  Alert,
 } from 'antd';
 import {
   ReloadOutlined,
   SearchOutlined,
   LinkOutlined,
-  EyeOutlined,
-  ThunderboltOutlined,
-  BellOutlined,
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import PriceMonitor from '@/components/PriceMonitor';
-import WatchlistManager from '@/components/WatchlistManager';
-import FrontRunActionPanel, { type FrontRunTransaction, type FrontRunParams } from '@/components/FrontRunActionPanel';
-import { isAddressWatched, getWatchedAddressInfo, getWatchlistAddresses } from '@/services/watchlist';
 
 const { Title, Text } = Typography;
 const { Option } = Select;
@@ -81,75 +73,11 @@ const StxDevMonitor: React.FC = () => {
   const [lastUpdateTime, setLastUpdateTime] = useState<string>('');
   const [searchText, setSearchText] = useState('');
   const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>([]);
-  const [watchlistManagerVisible, setWatchlistManagerVisible] = useState(false);
-  const [frontRunPanelVisible, setFrontRunPanelVisible] = useState(false);
-  const [selectedTransaction, setSelectedTransaction] = useState<FrontRunTransaction | null>(null);
-  const [enableSound, setEnableSound] = useState(true);
-  const [watchedTransactionCount, setWatchedTransactionCount] = useState(0);
 
   // 手动清除数据函数
   const handleClearData = () => {
     setData([]);
     message.success('数据已清除');
-  };
-
-  // 播放提示音
-  const playAlert = () => {
-    if (enableSound) {
-      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-      const oscillator = audioContext.createOscillator();
-      const gainNode = audioContext.createGain();
-      
-      oscillator.connect(gainNode);
-      gainNode.connect(audioContext.destination);
-      
-      oscillator.frequency.value = 800;
-      oscillator.type = 'sine';
-      
-      gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
-      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
-      
-      oscillator.start(audioContext.currentTime);
-      oscillator.stop(audioContext.currentTime + 0.5);
-    }
-  };
-
-  // 检查是否为监控地址的交易
-  const checkWatchedAddress = (address: string): boolean => {
-    return isAddressWatched(address);
-  };
-
-  // 处理抢先交易
-  const handleFrontRun = (record: MonitorData) => {
-    const addressInfo = getWatchedAddressInfo(record.address);
-    if (!addressInfo) {
-      message.warning('该地址不在监控列表中');
-      return;
-    }
-
-    const transaction: FrontRunTransaction = {
-      txId: record.id,
-      address: record.address,
-      addressLabel: addressInfo.label,
-      platform: record.platform,
-      swapInfo: record.swapInfo,
-      timestamp: record.timestamp,
-      fee: record.fee,
-    };
-
-    setSelectedTransaction(transaction);
-    setFrontRunPanelVisible(true);
-  };
-
-  // 执行抢先交易
-  const executeFrontRun = async (params: FrontRunParams) => {
-    // 这里应该调用实际的交易执行逻辑
-    // 目前为演示，仅显示消息
-    console.log('Executing front-run with params:', params);
-    message.success(`抢先交易已提交！策略: ${params.action}, 优先级: ${params.priority}`);
-    
-    // TODO: 集成实际的交易执行逻辑
-    // 可以调用 DEX 合约或者交易 API
   };
 
   // 解析交易类型为中文
@@ -359,24 +287,9 @@ const StxDevMonitor: React.FC = () => {
             fee: tx.fee_rate ? (parseInt(tx.fee_rate) / 1000000).toFixed(6) : '0',
           };
 
-          // 检查是否为监控地址的交易
-          const isWatched = checkWatchedAddress(tx.sender_address);
-          
           // 添加到数据列表开头
           setData(prevData => [monitorData, ...prevData.slice(0, 99)]); // 限制最多100条记录
           setLastUpdateTime(new Date().toLocaleTimeString('zh-CN'));
-          
-          // 如果是监控地址，发出通知
-          if (isWatched) {
-            setWatchedTransactionCount(prev => prev + 1);
-            playAlert();
-            const addressInfo = getWatchedAddressInfo(tx.sender_address);
-            message.warning({
-              content: `检测到监控地址交易！${addressInfo?.label || ''}`,
-              duration: 5,
-              icon: <ThunderboltOutlined style={{ color: '#ff4d4f' }} />,
-            });
-          }
         } catch (error) {
           console.error('Error parsing message:', error);
         }
@@ -521,30 +434,20 @@ const StxDevMonitor: React.FC = () => {
       dataIndex: 'address',
       key: 'address',
       width: 180,
-      render: (address: string) => {
-        const isWatched = checkWatchedAddress(address);
-        const addressInfo = getWatchedAddressInfo(address);
-        
-        return (
-          <Tooltip title={address}>
-            <Space>
-              {isWatched && (
-                <Tooltip title={`监控: ${addressInfo?.label}`}>
-                  <Badge status="processing" />
-                </Tooltip>
-              )}
-              <Text copyable={{ text: address }}>{formatAddress(address)}</Text>
-              <a
-                href={`https://explorer.hiro.so/address/${address}?chain=mainnet`}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                <LinkOutlined />
-              </a>
-            </Space>
-          </Tooltip>
-        );
-      },
+      render: (address: string) => (
+        <Tooltip title={address}>
+          <Space>
+            <Text copyable={{ text: address }}>{formatAddress(address)}</Text>
+            <a
+              href={`https://explorer.hiro.so/address/${address}?chain=mainnet`}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <LinkOutlined />
+            </a>
+          </Space>
+        </Tooltip>
+      ),
     },
     {
       title: '交易合约',
@@ -570,31 +473,6 @@ const StxDevMonitor: React.FC = () => {
         )
       ),
     },
-    {
-      title: '操作',
-      key: 'actions',
-      width: 120,
-      fixed: 'right' as const,
-      render: (_: any, record: MonitorData) => {
-        const isWatched = checkWatchedAddress(record.address);
-        
-        if (!isWatched) {
-          return <Text type="secondary">-</Text>;
-        }
-        
-        return (
-          <Button
-            type="primary"
-            danger
-            size="small"
-            icon={<ThunderboltOutlined />}
-            onClick={() => handleFrontRun(record)}
-          >
-            抢先
-          </Button>
-        );
-      },
-    },
   ];
 
   // 过滤数据
@@ -616,47 +494,6 @@ const StxDevMonitor: React.FC = () => {
         <Title level={3} style={{ margin: 0 }}>Stacks 实时监控</Title>
         <Text type="secondary" style={{ fontSize: '12px' }}>实时监控 Stacks 网络上的交易活动</Text>
       </Card>
-
-      {/* 订单压制功能说明 */}
-      <Alert
-        message="订单压制功能已启用"
-        description={
-          <Space direction="vertical" size="small" style={{ width: '100%' }}>
-            <Text>
-              通过监控列表功能，您可以实时监控特定地址的交易活动。当监控地址发起交易时，系统会立即发出通知，
-              您可以通过"抢先"按钮快速执行抢先交易（Front-running）。
-            </Text>
-            <Space wrap>
-              <Button
-                type="primary"
-                icon={<EyeOutlined />}
-                size="small"
-                onClick={() => setWatchlistManagerVisible(true)}
-              >
-                管理监控列表 ({getWatchlistAddresses().length})
-              </Button>
-              <Badge count={watchedTransactionCount} overflowCount={99}>
-                <Button size="small" icon={<BellOutlined />}>
-                  监控交易提醒
-                </Button>
-              </Badge>
-              <Text type="secondary">
-                声音提醒: 
-                <Switch
-                  size="small"
-                  checked={enableSound}
-                  onChange={setEnableSound}
-                  style={{ marginLeft: 8 }}
-                />
-              </Text>
-            </Space>
-          </Space>
-        }
-        type="info"
-        showIcon
-        closable
-        style={{ marginBottom: '10px' }}
-      />
 
       {/* 价格监控 - 独立自动刷新控制 */}
       <PriceMonitor />
@@ -781,27 +618,10 @@ const StxDevMonitor: React.FC = () => {
             showTotal: (total) => `共 ${total} 条记录`,
             pageSizeOptions: ['10', '20', '50', '100'],
           }}
-          scroll={{ x: 1500 }}
+          scroll={{ x: 1400 }}
           size="small"
         />
       </Card>
-
-      {/* 监控列表管理弹窗 */}
-      <WatchlistManager
-        visible={watchlistManagerVisible}
-        onClose={() => setWatchlistManagerVisible(false)}
-      />
-
-      {/* 抢先交易面板 */}
-      <FrontRunActionPanel
-        visible={frontRunPanelVisible}
-        transaction={selectedTransaction}
-        onClose={() => {
-          setFrontRunPanelVisible(false);
-          setSelectedTransaction(null);
-        }}
-        onExecute={executeFrontRun}
-      />
     </div>
   );
 };
