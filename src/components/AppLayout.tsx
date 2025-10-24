@@ -41,6 +41,16 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
         icon: <DashboardOutlined />,
         label: 'CEX 套利监控',
       });
+      items.push({
+        key: '/solana',
+        icon: <DashboardOutlined />,
+        label: 'Solana Meme Coin',
+      });
+      items.push({
+        key: '/base',
+        icon: <DashboardOutlined />,
+        label: 'Base Meme Coin',
+      });
     }
     
     if (user?.role === 'super' || user?.role === 'stark') {

@@ -9,6 +9,8 @@ import StxDevMonitor from './views/stacks/StackDev';
 import StarknetMonitor from './views/StarknetMonitor';
 import CexArbitrage from './views/CexArbitrage';
 import Settings from './views/Settings';
+import SolanaMonitor from './views/SolanaMonitor';
+import BaseMonitor from './views/BaseMonitor';
 import authService from './services/auth';
 
 const App: React.FC = () => {
@@ -46,6 +48,28 @@ const App: React.FC = () => {
               <ProtectedRoute requiredRole={['super', 'stx']}>
                 <AppLayout>
                   <CexArbitrage />
+                </AppLayout>
+              </ProtectedRoute>
+            }
+          />
+          
+          <Route
+            path="/solana"
+            element={
+              <ProtectedRoute requiredRole={['super', 'stx']}>
+                <AppLayout>
+                  <SolanaMonitor />
+                </AppLayout>
+              </ProtectedRoute>
+            }
+          />
+          
+          <Route
+            path="/base"
+            element={
+              <ProtectedRoute requiredRole={['super', 'stx']}>
+                <AppLayout>
+                  <BaseMonitor />
                 </AppLayout>
               </ProtectedRoute>
             }
