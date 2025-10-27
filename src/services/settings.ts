@@ -138,8 +138,8 @@ class SettingsService {
         success: true,
         message: `${exchange} 配置已成功保存并加密存储`,
         data: {
-          apiKey: credentials.apiKey.length > 4 ? '***' + credentials.apiKey.slice(-4) : '***',
-          secretKey: credentials.secretKey.length > 4 ? '***' + credentials.secretKey.slice(-4) : '***',
+          apiKey: '***',
+          secretKey: '***',
           enabled: credentials.enabled,
         },
         timestamp: new Date().toISOString(),
