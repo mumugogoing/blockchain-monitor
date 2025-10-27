@@ -26,11 +26,11 @@ const Login: React.FC = () => {
       } else if (user?.role === 'stark') {
         navigate('/starknet');
       }
+      // 导航后不需要设置 loading 为 false，因为组件会被卸载
     } else {
       message.error('用户名或密码错误');
+      setLoading(false);
     }
-    
-    setLoading(false);
   };
 
   return (
