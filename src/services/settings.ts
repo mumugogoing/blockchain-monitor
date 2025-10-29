@@ -1,6 +1,14 @@
 import { encryptData, decryptData, generateUserKey } from '@/utils/crypto';
 import authService from './auth';
 
+// API响应接口
+export interface ApiResponse<T = any> {
+  success: boolean;
+  message: string;
+  data?: T;
+  timestamp: string;
+}
+
 // 交易所配置接口
 export interface ExchangeCredentials {
   apiKey: string;
@@ -120,19 +128,52 @@ class SettingsService {
   async updateExchangeCredentials(
     exchange: string,
     credentials: ExchangeCredentials
-  ): Promise<void> {
-    const settings = await this.getExchangeSettings();
-    settings[exchange as keyof ExchangeSettings] = credentials;
-    await this.saveExchangeSettings(settings);
+  ): Promise<ApiResponse<ExchangeCredentials>> {
+    try {
+      const settings = await this.getExchangeSettings();
+      settings[exchange as keyof ExchangeSettings] = credentials;
+      await this.saveExchangeSettings(settings);
+      
+      return {
+        success: true,
+        message: `${exchange} 配置已成功保存并加密存储`,
+        data: {
+          apiKey: '***',
+          secretKey: '***',
+          enabled: credentials.enabled,
+        },
+        timestamp: new Date().toISOString(),
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: `保存 ${exchange} 配置失败: ${(error as Error).message}`,
+        timestamp: new Date().toISOString(),
+      };
+    }
   }
 
   /**
    * 删除特定交易所的配置
    */
-  async deleteExchangeCredentials(exchange: string): Promise<void> {
-    const settings = await this.getExchangeSettings();
-    delete settings[exchange as keyof ExchangeSettings];
-    await this.saveExchangeSettings(settings);
+  async deleteExchangeCredentials(exchange: string): Promise<ApiResponse<void>> {
+    try {
+      const settings = await this.getExchangeSettings();
+      delete settings[exchange as keyof ExchangeSettings];
+      await this.saveExchangeSettings(settings);
+      
+      return {
+        success: true,
+        message: `${exchange} 配置已成功删除`,
+        timestamp: new Date().toISOString(),
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: `删除 ${exchange} 配置失败: ${(error as Error).message}`,
+        timestamp: new Date().toISOString(),
+      };
+    }
   }
 
   /**

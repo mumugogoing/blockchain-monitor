@@ -24,7 +24,7 @@ import {
   CheckCircleOutlined,
   LockOutlined
 } from '@ant-design/icons';
-import settingsService, { type ExchangeCredentials, DEFAULT_BASE_URLS } from '@/services/settings';
+import settingsService, { type ExchangeCredentials, type ApiResponse, DEFAULT_BASE_URLS } from '@/services/settings';
 
 const { Title, Text, Paragraph } = Typography;
 const { Panel } = Collapse;
@@ -52,6 +52,7 @@ const ExchangeForm: React.FC<ExchangeFormProps> = ({ exchangeKey, exchangeName, 
   const [showApiKey, setShowApiKey] = useState(false);
   const [showSecretKey, setShowSecretKey] = useState(false);
   const [hasCredentials, setHasCredentials] = useState(false);
+  const [lastResponse, setLastResponse] = useState<ApiResponse | null>(null);
 
   useEffect(() => {
     loadCredentials();
@@ -82,6 +83,7 @@ const ExchangeForm: React.FC<ExchangeFormProps> = ({ exchangeKey, exchangeName, 
 
   const handleSave = async (values: any) => {
     setLoading(true);
+    setLastResponse(null);
     try {
       const credentials: ExchangeCredentials = {
         apiKey: values.apiKey || '',
@@ -98,11 +100,23 @@ const ExchangeForm: React.FC<ExchangeFormProps> = ({ exchangeKey, exchangeName, 
         message.warning('Secret Key 格式可能不正确');
       }
 
-      await settingsService.updateExchangeCredentials(exchangeKey, credentials);
-      message.success(`${exchangeName} 配置已保存并加密存储`);
-      setHasCredentials(true);
+      const response = await settingsService.updateExchangeCredentials(exchangeKey, credentials);
+      setLastResponse(response);
+      
+      if (response.success) {
+        message.success(response.message);
+        setHasCredentials(true);
+      } else {
+        message.error(response.message);
+      }
     } catch (error) {
-      message.error('保存失败: ' + (error as Error).message);
+      const errorResponse: ApiResponse = {
+        success: false,
+        message: '保存失败: ' + (error as Error).message,
+        timestamp: new Date().toISOString(),
+      };
+      setLastResponse(errorResponse);
+      message.error(errorResponse.message);
     } finally {
       setLoading(false);
     }
@@ -113,14 +127,27 @@ const ExchangeForm: React.FC<ExchangeFormProps> = ({ exchangeKey, exchangeName, 
       title: '确认删除',
       content: `确定要删除 ${exchangeName} 的配置吗？此操作不可恢复。`,
       onOk: async () => {
+        setLastResponse(null);
         try {
-          await settingsService.deleteExchangeCredentials(exchangeKey);
-          form.resetFields();
-          form.setFieldsValue({ baseURL: DEFAULT_BASE_URLS[exchangeKey] });
-          message.success(`${exchangeName} 配置已删除`);
-          setHasCredentials(false);
+          const response = await settingsService.deleteExchangeCredentials(exchangeKey);
+          setLastResponse(response);
+          
+          if (response.success) {
+            form.resetFields();
+            form.setFieldsValue({ baseURL: DEFAULT_BASE_URLS[exchangeKey] });
+            message.success(response.message);
+            setHasCredentials(false);
+          } else {
+            message.error(response.message);
+          }
         } catch (error) {
-          message.error('删除失败');
+          const errorResponse: ApiResponse = {
+            success: false,
+            message: '删除失败: ' + (error as Error).message,
+            timestamp: new Date().toISOString(),
+          };
+          setLastResponse(errorResponse);
+          message.error(errorResponse.message);
         }
       },
     });
@@ -211,6 +238,38 @@ const ExchangeForm: React.FC<ExchangeFormProps> = ({ exchangeKey, exchangeName, 
           </Button>
         </Form.Item>
       </Form>
+
+      {/* 显示后端响应信息 */}
+      {lastResponse && (
+        <Alert
+          style={{ marginTop: 16 }}
+          message="操作结果"
+          description={
+            <Space direction="vertical" style={{ width: '100%' }}>
+              <Text strong>状态: {lastResponse.success ? '成功' : '失败'}</Text>
+              <Text>消息: {lastResponse.message}</Text>
+              <Text type="secondary">时间: {new Date(lastResponse.timestamp).toLocaleString('zh-CN')}</Text>
+              {lastResponse.data && (
+                <div>
+                  <Text strong>返回数据:</Text>
+                  <pre style={{ 
+                    background: '#f5f5f5', 
+                    padding: '8px', 
+                    borderRadius: '4px',
+                    marginTop: '8px',
+                    fontSize: '12px'
+                  }}>
+                    {JSON.stringify(lastResponse.data, null, 2)}
+                  </pre>
+                </div>
+              )}
+            </Space>
+          }
+          type={lastResponse.success ? 'success' : 'error'}
+          closable
+          onClose={() => setLastResponse(null)}
+        />
+      )}
     </Card>
   );
 };
